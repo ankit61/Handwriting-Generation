@@ -1,3 +1,4 @@
 runs/*
+models/*
 *.txt
 __pycache__/*
