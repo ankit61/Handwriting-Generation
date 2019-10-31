@@ -86,7 +86,7 @@ class BaseRunner(metaclass=ABCMeta):
                             'state_dict': self.nets[i].state_dict(),
                             'best_metric_val': self.best_meter.avg,
                             'best_metric_name': self.best_metric_name
-                            }, os.path.join(constants.SAVED_MODELS_BASE_DIR,
+                            }, os.path.join(constants.MODELS_BASE_DIR,
                                 'checkpoint_' + str(epoch + 1) + '.pth')
                         )
                         self.best_metric_val = self.best_meter.avg
