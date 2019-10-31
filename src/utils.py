@@ -22,7 +22,7 @@ class PtsToTensor(object):
 class AverageMeter(object):
     """Computes and stores the average and current value"""
     #taken from https://github.com/pytorch/examples/blob/master/imagenet/main.py
-    def __init__(self, name, fmt=':f'):
+    def __init__(self, name, fmt=':6.3f'):
         self.name = name
         self.fmt = fmt
         self.reset()
@@ -51,8 +51,8 @@ class ProgressMeter(object):
         self.meters = meters
         self.prefix = prefix
 
-    def display(self, batch):
-        entries = [self.prefix + self.batch_fmtstr.format(batch)]
+    def display(self, batch, epoch):
+        entries = [self.prefix + ' ' + str(epoch) + ':' + self.batch_fmtstr.format(batch)]
         entries += [str(meter) for meter in self.meters]
         print('\t'.join(entries))
 
