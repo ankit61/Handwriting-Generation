@@ -16,7 +16,7 @@ class TestBaseRunner(BaseRunner.BaseRunner):
     def train_batch_and_get_metrics(self, batch):
        out = self.nets[0](batch[0])
        loss = self.loss_fn(out, batch[1])       
-       acc1, acc5 = self.accuracy(output, batch[1], topk=(1, 5))
+       acc1, acc5 = self.accuracy(out, batch[1], topk=(1, 5))
 
        self.optimizers[0].zero_grad()
        loss.backward()
@@ -27,10 +27,11 @@ class TestBaseRunner(BaseRunner.BaseRunner):
     def test_batch_and_get_metrics(self, batch):
         out = self.nets[0](batch[0])
         loss = self.loss_fn(out, batch[1])
-        
-        return [('loss', loss.mean().item())]
+        acc1, acc5 = self.accuracy(out, batch[1], topk=(1, 5))
 
-    def accuracy(output, target, topk=(1,)):
+        return [('loss', loss.mean().item()), ('acc1', acc1), ('acc5', acc5)]
+
+    def accuracy(self, output, target, topk=(1,)):
         """Computes the accuracy over the k top predictions for the specified values of k"""
         with torch.no_grad():
             maxk = max(topk)
