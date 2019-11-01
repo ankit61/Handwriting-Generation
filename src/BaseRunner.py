@@ -41,11 +41,14 @@ class BaseRunner(metaclass=ABCMeta):
 
             #transfer from CPU -> GPU asynchronously if at all
             if torch.cuda.is_available():
-                if type(batch) != type([]):
+                if type(batch) != type([]) and type(batch) != type({}):
                     batch = batch.cuda(non_blocking=True)
-                else:
+                elif type(batch) == type([]):
                     for j in range(len(batch)):
                         batch[j] = batch[j].cuda(non_blocking=True)
+                else: #type(batch) == type({})
+                    for key in batch.keys():
+                        batch[key] = batch[key].cuda(non_blocking=True)
 
             metrics = metrics_calc(batch)
             if metrics is not None:
@@ -110,7 +113,7 @@ class BaseRunner(metaclass=ABCMeta):
                 self.best_meter.update(metric_val)
                 did_find_name = True
                 break
-        
+
         if not did_find_name:
             raise Exception('''Invalid best_metric_name set - 
                 best_metric_name must be one of metrics
