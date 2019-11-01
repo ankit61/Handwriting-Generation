@@ -173,6 +173,9 @@ class HWGANDataset(Dataset):
 
             data.append(sample)
 
+        data.sort(key = lambda sample : sample['orig_datapoints_len'], 
+            reverse=True)
+
         return data
 
     def __len__(self):

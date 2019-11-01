@@ -4,8 +4,8 @@ import torch
 import constants
 
 dataset = HWGANDataset()
-batch_size = 2
-dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+batch_size = 10
+dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
 
 for batch in dataloader:
     break
