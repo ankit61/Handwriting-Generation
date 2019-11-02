@@ -28,7 +28,16 @@ class BaseRunner(metaclass=ABCMeta):
         self.best_meter = utils.AverageMeter('best_metric')
         self.loss_fn = loss_fn
         self.optimizers = optimizers
+        self.keys_for_gpu = None
 
+        if(torch.cuda.is_available()):
+            for i in range(len(self.nets)):
+                self.nets[i] = self.nets[i].cuda()
+
+
+    def set_gpu_keys(self, keys):
+        self.keys_for_gpu = keys
+    
     def run(self, data_loader, prefix, epoch, metrics_calc):
         batch_time_meter = utils.AverageMeter('Time')
         data_time_meter  = utils.AverageMeter('Data')
@@ -48,7 +57,8 @@ class BaseRunner(metaclass=ABCMeta):
                         batch[j] = batch[j].cuda(non_blocking=True)
                 else: #type(batch) == type({})
                     for key in batch.keys():
-                        batch[key] = batch[key].cuda(non_blocking=True)
+                        if self.keys_for_gpu is None or key in self.keys_for_gpu:
+                            batch[key] = batch[key].cuda(non_blocking=True)
 
             metrics = metrics_calc(batch)
             if metrics is not None:

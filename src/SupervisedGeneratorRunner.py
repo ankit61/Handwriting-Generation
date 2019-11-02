@@ -19,15 +19,18 @@ class SupervisedGeneratorRunner(BaseRunner):
             loss_fn=SupervisedGeneratorRunner.generator_loss, 
             optimizers=[optimizer], best_metric_name='loss', 
             should_minimize_best_metric=True)
+        self.set_gpu_keys(['datapoints', 'writer_id', 'line_text_integers'])
 
     def run_batch_and_get_metrics(self, batch, is_train_mode):
         #batch['datapoints'].shape -> batch_size x max_seq_len x features_of_element
         packed_datapoints = rnn_utils.pack_padded_sequence(batch['datapoints'],
-            batch['orig_datapoints_len'], batch_first=True)
+            batch['orig_datapoints_len'].cpu(), batch_first=True)
 
         batch_start = 0
         last_hidden = torch.zeros(batch['datapoints'].shape[0], constants.LSTM_HIDDEN_SIZE)
         last_cell   = torch.zeros(batch['datapoints'].shape[0], constants.LSTM_HIDDEN_SIZE)
+        if torch.cuda.is_available():
+            last_hidden, last_cell = last_hidden.cuda(), last_cell.cuda()
 
         loss = 0.0
         self.optimizers[0].zero_grad()
@@ -71,6 +74,6 @@ class SupervisedGeneratorRunner(BaseRunner):
         xys  = generated.narrow(1, 0, 2)
         ps   = generated.narrow(1, 2, 1)
 
-        mse_loss = nn.MSELoss()
-        bce_loss = nn.BCEWithLogitsLoss()
+        mse_loss = nn.MSELoss().cuda() if torch.cuda.is_available() else nn.MSELoss()
+        bce_loss = nn.BCEWithLogitsLoss().cuda() if torch.cuda.is_available() else nn.BCEWithLogitsLoss()
         return mse_loss(xys, gt.narrow(1, 0, 2)) + bce_loss(ps, gt.narrow(1, 2, 1))

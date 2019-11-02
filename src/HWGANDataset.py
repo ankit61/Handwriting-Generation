@@ -129,7 +129,7 @@ class HWGANDataset(Dataset):
         data = []
         writer_id_to_int_map = {}
         
-        for file_name in os.listdir(data_dir):
+        for file_name in os.listdir(data_dir)[:32]:
             writer_id = file_name.split('.')[0].split('_')[1]
             
             if writer_id not in writer_id_to_int_map:

@@ -14,9 +14,7 @@ class Attention(BaseModule):
     def forward(self, letter_embedding_sequence, last_hidden):
         flattened_sequence = letter_embedding_sequence.view(
                                 letter_embedding_sequence.shape[0], -1)
-        if last_hidden is None:
-            last_hidden = torch.zeros(letter_embedding_sequence.shape[0], 
-                            constants.LSTM_HIDDEN_SIZE)
+        
         attn_input = torch.cat([flattened_sequence, last_hidden], dim=1)
         attn_weights = F.softmax(self.attn(attn_input), dim=1).unsqueeze(1)
         #attn_weights.shape -> batch_size x 1 x constants.MAX_LINE_POINTS
