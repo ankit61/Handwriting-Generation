@@ -76,6 +76,9 @@ class BaseRunner(metaclass=ABCMeta):
                     progress = utils.ProgressMeter(len(data_loader), other_meters + \
                         [batch_time_meter, data_time_meter], prefix=prefix)
                     progress_display_made = True
+            elif not progress_display_made:
+                progress = utils.ProgressMeter(len(data_loader), [batch_time_meter, data_time_meter], prefix=prefix)
+ 
 
             batch_time_meter.update(time.time() - start_time)
             start_time = time.time()

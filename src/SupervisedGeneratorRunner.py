@@ -10,6 +10,7 @@ from tqdm import tqdm
 LR = 0.01
 MOMENTUM = 0.9
 WEIGHT_DECAY = 5e-4
+GRADIENT_CLIP_NORM = 5
 
 class SupervisedGeneratorRunner(BaseRunner):
     def __init__(self, debug = True):
@@ -54,6 +55,7 @@ class SupervisedGeneratorRunner(BaseRunner):
             if is_train_mode:
                 #calculate gradients but don't update
                 loss.backward(retain_graph=(i < len(packed_datapoints.batch_sizes) - 1))
+                torch.nn.utils.clip_grad_norm_(self.nets[0].parameters(), GRADIENT_CLIP_NORM)
 
             batch_start += cur_batch_size
 
@@ -64,10 +66,10 @@ class SupervisedGeneratorRunner(BaseRunner):
         return [('loss', loss.mean().item())]
 
     def train_batch_and_get_metrics(self, batch):
-        self.run_batch_and_get_metrics(batch, is_train_mode=True)
+        return self.run_batch_and_get_metrics(batch, is_train_mode=True)
 
     def test_batch_and_get_metrics(self, batch):
-        self.run_batch_and_get_metrics(batch, is_train_mode=False)
+        return self.run_batch_and_get_metrics(batch, is_train_mode=False)
 
     @staticmethod
     def generator_loss(generated, gt):
