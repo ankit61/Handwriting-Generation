@@ -125,11 +125,10 @@ class HWGANDataset(Dataset):
         self.data = self.load_data(data_dir, max_line_points)
 
     def load_data(self, data_dir, max_line_points):
-        points_size = []
         data = []
         writer_id_to_int_map = {}
         
-        for file_name in os.listdir(data_dir)[:32]:
+        for file_name in os.listdir(data_dir):
             writer_id = file_name.split('.')[0].split('_')[1]
             
             if writer_id not in writer_id_to_int_map:
@@ -143,7 +142,6 @@ class HWGANDataset(Dataset):
                 line_text, num_points, line_datapoints = file_lines[0], int(file_lines[1]), file_lines[2:]
                 if num_points > max_line_points: continue
                 # Check intersection between line text and ignored chars
-                points_size.append(num_points)
                 if set(line_text) & self.chars_to_ignore: continue
             # Convert string datapoints to float tuples
             datapoints = [None] * num_points

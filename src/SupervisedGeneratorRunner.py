@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 LR = 0.01
 MOMENTUM = 0.9
-WEIGHT_DECAY = 5e-4
+WEIGHT_DECAY = 0
 GRADIENT_CLIP_NORM = 5
 
 class SupervisedGeneratorRunner(BaseRunner):
@@ -51,10 +51,10 @@ class SupervisedGeneratorRunner(BaseRunner):
             gt = packed_datapoints.data[batch_start:batch_start + cur_batch_size, :]
             generated = last_hidden[:cur_batch_size, :3]
             loss += self.loss_fn(generated, gt)
-
             if is_train_mode:
                 #calculate gradients but don't update
                 loss.backward(retain_graph=(i < len(packed_datapoints.batch_sizes) - 1))
+                self.output_gradient_distributions(i)
                 torch.nn.utils.clip_grad_norm_(self.nets[0].parameters(), GRADIENT_CLIP_NORM)
 
             batch_start += cur_batch_size

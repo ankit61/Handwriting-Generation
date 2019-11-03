@@ -13,7 +13,7 @@ class BaseRunner(metaclass=ABCMeta):
     #inspired by https://github.com/pytorch/examples/blob/master/imagenet/main.py
 
     def __init__(self, models, loss_fn, optimizers, best_metric_name,
-        should_minimize_best_metric, debug = True):
+        should_minimize_best_metric, debug = True, introspect = True):
         
         assert type(models) == type([]), 'models must be a list'
         assert type(optimizers) == type([]), 'optimizers must be a list'
@@ -22,6 +22,7 @@ class BaseRunner(metaclass=ABCMeta):
         self.nets   = models
         self.name   = self.__class__.__name__
         self.debug  = debug
+        self.introspect = introspect
         self.best_metric_name = best_metric_name
         self.best_compare = -1 if should_minimize_best_metric else 1
         self.best_metric_val = - self.best_compare * 100000
@@ -34,6 +35,23 @@ class BaseRunner(metaclass=ABCMeta):
             for i in range(len(self.nets)):
                 self.nets[i] = self.nets[i].cuda()
 
+    def output_weight_distribution(self, name_prefix="training_weights"):
+        if not self.introspect:
+            return
+
+        for net in self.nets:
+            for param_name, param_val in net.named_parameters():
+                param_distribution_tag = f'{net.__class__.__name__}/{name_prefix}/{param_name}'
+                self.writer.add_histogram(param_distribution_tag, param_val)
+    
+    def output_gradient_distributions(self, batch_num, name_prefix="training_gradients"):
+        if not self.introspect:
+            return
+
+        for net in self.nets:
+            for param_name, param in net.named_parameters():
+                param_distribution_tag = f'{net.__class__.__name__}/{name_prefix}/{param_name}'
+                self.writer.add_histogram(param_distribution_tag, param.grad, global_step=batch_num)
 
     def set_gpu_keys(self, keys):
         self.keys_for_gpu = keys
@@ -46,6 +64,7 @@ class BaseRunner(metaclass=ABCMeta):
         progress_display_made = False
         start_time = time.time()
         for i, batch in enumerate(data_loader):
+            batch_number = epoch * len(data_loader) + i
             data_time_meter.update(time.time() - start_time)
 
             #transfer from CPU -> GPU asynchronously if at all
@@ -61,10 +80,12 @@ class BaseRunner(metaclass=ABCMeta):
                             batch[key] = batch[key].cuda(non_blocking=True)
 
             metrics = metrics_calc(batch)
+            # loss.backward is called in metrics_calc
+            self.output_gradient_distributions(batch_number)
             if metrics is not None:
                 for j, (metric_name, metric_val) in enumerate(metrics):
                     self.writer.add_scalar(os.path.join(self.name, prefix + '_' + 
-                        metric_name), metric_val, epoch * i + i)
+                        metric_name), metric_val, batch_number)
 
                     if not progress_display_made:
                         other_meters.append(utils.AverageMeter(metric_name))
@@ -87,12 +108,13 @@ class BaseRunner(metaclass=ABCMeta):
                 progress.display(i, epoch)
 
     def train(self, train_loader, epochs, val_loader = None):
+        self.output_weight_distribution("weight_initializations")
+
         for i in range(len(self.nets)):
             self.nets[i].train()
 
         for epoch in range(epochs):
             self.run(train_loader, 'train', epoch, self.train_batch_and_get_metrics)
-
             if val_loader is not None:
                 self.test(val_loader, validate=True)
                 if(sign(self.best_meter.avg - self.best_metric_val) == self.best_compare):
@@ -107,6 +129,8 @@ class BaseRunner(metaclass=ABCMeta):
                         )
                         self.best_metric_val = self.best_meter.avg
                 self.best_meter.reset()
+
+        self.output_weight_distribution("final_weights")
 
     def test(self, test_loader, validate=False):
         for i in range(len(self.nets)):
