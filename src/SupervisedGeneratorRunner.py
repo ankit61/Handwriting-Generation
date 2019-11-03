@@ -7,7 +7,7 @@ import constants
 import torch
 from tqdm import tqdm
 
-LR = 0.01
+LR = 0.0001
 MOMENTUM = 0.9
 WEIGHT_DECAY = 0
 GRADIENT_CLIP_NORM = 5
@@ -63,7 +63,7 @@ class SupervisedGeneratorRunner(BaseRunner):
             #update weights
             self.optimizers[0].step()
 
-        return [('loss', loss.mean().item())]
+        return [('loss', loss.div_(batch['datapoints'].shape[1]).item())]
 
     def train_batch_and_get_metrics(self, batch):
         return self.run_batch_and_get_metrics(batch, is_train_mode=True)
