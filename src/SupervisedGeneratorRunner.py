@@ -7,7 +7,7 @@ import constants
 import torch
 from tqdm import tqdm
 
-LR = 0.0001
+LR = 0.01
 MOMENTUM = 0.9
 WEIGHT_DECAY = 0
 GRADIENT_CLIP_NORM = 5
@@ -15,7 +15,7 @@ GRADIENT_CLIP_NORM = 5
 class SupervisedGeneratorRunner(BaseRunner):
     def __init__(self, debug = True):
         model = GeneratorCell()
-        optimizer = optim.Adam(model.parameters())
+        optimizer = optim.Adam(model.parameters(), lr=LR)
         self.global_step = 0
         super(SupervisedGeneratorRunner, self).__init__(models=[model],
             loss_fn=SupervisedGeneratorRunner.generator_loss, 
