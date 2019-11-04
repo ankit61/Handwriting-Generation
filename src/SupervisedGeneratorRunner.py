@@ -15,7 +15,8 @@ GRADIENT_CLIP_NORM = 5
 class SupervisedGeneratorRunner(BaseRunner):
     def __init__(self, debug = True):
         model = GeneratorCell()
-        optimizer = optim.SGD(model.parameters(), lr=LR, momentum=MOMENTUM, weight_decay=WEIGHT_DECAY)
+        optimizer = optim.Adam(model.parameters())
+        self.global_step = 0
         super(SupervisedGeneratorRunner, self).__init__(models=[model],
             loss_fn=SupervisedGeneratorRunner.generator_loss, 
             optimizers=[optimizer], best_metric_name='loss', 
@@ -54,8 +55,9 @@ class SupervisedGeneratorRunner(BaseRunner):
             if is_train_mode:
                 #calculate gradients but don't update
                 loss.backward(retain_graph=(i < len(packed_datapoints.batch_sizes) - 1))
-                self.output_gradient_distributions(i)
                 torch.nn.utils.clip_grad_norm_(self.nets[0].parameters(), GRADIENT_CLIP_NORM)
+                self.output_gradient_distributions(self.global_step)
+                self.global_step += 1
 
             batch_start += cur_batch_size
 
@@ -63,7 +65,7 @@ class SupervisedGeneratorRunner(BaseRunner):
             #update weights
             self.optimizers[0].step()
 
-        return [('loss', loss.div_(batch['datapoints'].shape[1]).item())]
+        return [('loss', loss.div_(len(packed_datapoints.batch_sizes)).item())]
 
     def train_batch_and_get_metrics(self, batch):
         return self.run_batch_and_get_metrics(batch, is_train_mode=True)
