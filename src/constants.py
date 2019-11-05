@@ -3,7 +3,7 @@ from pathlib import Path
 import getpass
 from datetime import datetime
 
-CHARACTER_SET_SIZE          = 68
+CHARACTER_SET_SIZE          = 69
 STYLE_VECTOR_SIZE           = 256 # 128
 PRINT_FREQ                  = 20
 INTERMITTENT_OUTPUT_FREQ    = 10 # Num batches between outputs
