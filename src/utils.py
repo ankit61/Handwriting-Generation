@@ -1,4 +1,5 @@
-import torch, os
+import torch, os, matplotlib
+import matplotlib.pyplot as plt
 from collections import defaultdict
 import constants
 
@@ -90,3 +91,30 @@ def get_char_info_from_data(data_dir, max_line_points, minimum_char_frequency):
         char_to_idx_map[char] = i
         idx_to_char_map[i] = char
     return chars_to_ignore, idx_to_char_map, char_to_idx_map
+
+def delta_points_to_image(delta_points, output_dir, file_name):
+    cur_point = (0, 0, 0)
+    i = 0
+    plot_x = []
+    plot_y = []
+
+    while i < len(delta_points):
+        delta_x, delta_y, p = delta_points[i]
+        x, y, _ = cur_point
+        cur_point = (x + delta_x, y + delta_y, p)
+        plot_x.append(cur_point[0])
+        plot_y.append(10000 - cur_point[1])
+        if p == 1:
+            # Plot current stroke and start new stroke
+            plt.plot(plot_x, plot_y, 'k')
+            plot_x = []
+            plot_y = []
+        i += 1
+    # Plot any remaining points (especially for generated points)
+    if len(plot_x) != 0:
+        plt.plot(plot_x, plot_y, 'k')
+    
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    plt.savefig(f'{output_dir}/{file_name}')
+    plt.clf()

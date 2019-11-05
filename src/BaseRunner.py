@@ -67,6 +67,9 @@ class BaseRunner(metaclass=ABCMeta):
             batch_number = epoch * len(data_loader) + i
             data_time_meter.update(time.time() - start_time)
 
+            if batch_number % constants.INTERMITTENT_OUTPUT_FREQ == 0:
+                self.intermittent_introspection(batch, batch_number)
+
             #transfer from CPU -> GPU asynchronously if at all
             if torch.cuda.is_available():
                 if type(batch) != type([]) and type(batch) != type({}):
@@ -177,3 +180,11 @@ class BaseRunner(metaclass=ABCMeta):
            
             Return: metrics - [(metric_name, metric_val (should be scalar))]'''
         return
+
+    def intermittent_introspection(self, batch):
+        '''Perform any intermittent statistics / test output introspection here
+            * This function will be called intermittently throughout the training process
+
+            Return: NoneType
+        '''
+        raise NotImplementedError()

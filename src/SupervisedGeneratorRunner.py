@@ -1,5 +1,7 @@
 from GeneratorCell import GeneratorCell
 from BaseRunner import BaseRunner
+from utils import delta_points_to_image
+import constants
 import torch.optim as optim
 import torch.nn as nn
 import torch.nn.utils.rnn as rnn_utils
@@ -7,7 +9,7 @@ import constants
 import torch
 from tqdm import tqdm
 
-LR = 0.01
+LR = 0.5
 MOMENTUM = 0.9
 WEIGHT_DECAY = 0
 GRADIENT_CLIP_NORM = 5
@@ -73,11 +75,51 @@ class SupervisedGeneratorRunner(BaseRunner):
     def test_batch_and_get_metrics(self, batch):
         return self.run_batch_and_get_metrics(batch, is_train_mode=False)
 
+    def intermittent_introspection(self, batch, global_step):
+        # Generate a test output for a single sentence
+        gt_delta_points = []
+        generated_delta_points = [(0, 0, 0)]
+        test_sentence = {}
+        # Get one sentence from batch
+        test_sentence['datapoints'] = batch['datapoints'][:1, :]
+        test_sentence['line_text_integers'] = batch['line_text_integers'][:1, :]
+        test_sentence['orig_datapoints_len'] = batch['orig_datapoints_len'][0]
+        # Need to resize writer_id to 1D tensor for GeneratorCell invariant shape consistency
+        test_sentence['writer_id'] = batch['writer_id'][0].reshape(1,)
+
+        last_hidden = torch.zeros(test_sentence['datapoints'].shape[0], constants.LSTM_HIDDEN_SIZE)
+        last_cell   = torch.zeros(test_sentence['datapoints'].shape[0], constants.LSTM_HIDDEN_SIZE)
+
+        if torch.cuda.is_available():
+            last_hidden, last_cell = last_hidden.cuda(), last_cell.cuda()
+
+        for i in range(test_sentence['orig_datapoints_len']):
+            #do forward pass
+            letter_id_sequences = test_sentence['line_text_integers']
+            writer_ids = test_sentence['writer_id']
+
+            last_hidden, last_cell = self.nets[0](writer_ids, letter_id_sequences,
+                                                    last_hidden, last_cell)
+
+            #compute loss
+            gt = test_sentence['datapoints'][0][i]
+            gt_delta_points.append((gt[0], gt[1], gt[2]))
+            generated = last_hidden[:, :3]
+            
+            generated_xy  = generated.narrow(1, 0, 2)
+            generated_p   = generated.narrow(1, 2, 1)
+            generated_p = generated_p[0][0]
+            # Each generated value is a 2D array
+            generated_delta_points.append((generated_xy[0][0], generated_xy[0][1], 1 if generated_p > 0.5 else 0))
+
+        delta_points_to_image(generated_delta_points, constants.INTERMITTENT_OUTPUTS_BASE_DIR, f'output_{global_step}.png')
+        delta_points_to_image(gt_delta_points, constants.INTERMITTENT_OUTPUTS_BASE_DIR, f'ground_truth_{global_step}.png')
+
     @staticmethod
     def generator_loss(generated, gt):
         xys  = generated.narrow(1, 0, 2)
         ps   = generated.narrow(1, 2, 1)
 
-        mse_loss = nn.MSELoss().cuda() if torch.cuda.is_available() else nn.MSELoss()
+        mse_loss = nn.L1Loss().cuda() if torch.cuda.is_available() else nn.MSELoss()
         bce_loss = nn.BCEWithLogitsLoss().cuda() if torch.cuda.is_available() else nn.BCEWithLogitsLoss()
         return mse_loss(xys, gt.narrow(1, 0, 2)) + bce_loss(ps, gt.narrow(1, 2, 1))
