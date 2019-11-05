@@ -74,8 +74,8 @@ class BaseRunner(metaclass=ABCMeta):
             batch_number = epoch * len(data_loader) + i
             data_time_meter.update(time.time() - start_time)
 
-            if batch_number % constants.INTERMITTENT_OUTPUT_FREQ == 0:
-                self.intermittent_introspection(batch, batch_number)
+            #if batch_number % constants.INTERMITTENT_OUTPUT_FREQ == 0:
+            #    self.intermittent_introspection(batch, batch_number)
 
             #transfer from CPU -> GPU asynchronously if at all
             if torch.cuda.is_available():
