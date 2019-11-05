@@ -3,6 +3,8 @@ import torch
 import torch.nn as nn
 import constants
 from Attention import Attention
+from scipy.stats import ortho_group
+import copy
 
 class GeneratorCell(BaseModule):
     def __init__(self, invariant_size = constants.STYLE_VECTOR_SIZE, debug = True):
@@ -15,6 +17,21 @@ class GeneratorCell(BaseModule):
                             constants.LSTM_HIDDEN_SIZE)
 
         self.attn      = Attention(self.debug)
+        self.init_embeddings()
+
+    def init_embeddings(self):
+        #set as many vectors to be orthogonal as possible
+        with torch.no_grad():
+            self.invariant.weight[:self.invariant.embedding_dim] = \
+                torch.tensor(ortho_group.rvs(self.invariant.embedding_dim) \
+                    [:self.invariant.num_embeddings])
+        
+            self.char_embedding.weight[:self.char_embedding.embedding_dim] = \
+                torch.tensor(ortho_group.rvs(self.char_embedding.embedding_dim) \
+                    [:self.char_embedding.num_embeddings])
+
+        self.invariant.weight.requires_grad_()
+        self.char_embedding.weight.requires_grad_()
 
     def forward(self, writer_id, letter_id_sequence, last_hidden, last_cell):
         invariants      = self.invariant(writer_id)

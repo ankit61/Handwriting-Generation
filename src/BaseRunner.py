@@ -8,6 +8,10 @@ import time
 import constants
 import os
 from numpy import sign
+import torch.optim.lr_scheduler as lr_scheduler
+
+LR_DECAY_STEP_SIZE  = 10
+LR_DECAY_FACTOR     = 0.5
 
 class BaseRunner(metaclass=ABCMeta):
     #inspired by https://github.com/pytorch/examples/blob/master/imagenet/main.py
@@ -30,6 +34,9 @@ class BaseRunner(metaclass=ABCMeta):
         self.loss_fn = loss_fn
         self.optimizers = optimizers
         self.keys_for_gpu = None
+        self.lr_schedulers = \
+            [lr_scheduler.StepLR(optimizers[i], LR_DECAY_STEP_SIZE, LR_DECAY_FACTOR) 
+                for i in range(len(self.optimizers))]
 
         if(torch.cuda.is_available()):
             for i in range(len(self.nets)):
@@ -55,7 +62,7 @@ class BaseRunner(metaclass=ABCMeta):
 
     def set_gpu_keys(self, keys):
         self.keys_for_gpu = keys
-    
+
     def run(self, data_loader, prefix, epoch, metrics_calc):
         batch_time_meter = utils.AverageMeter('Time')
         data_time_meter  = utils.AverageMeter('Data')
@@ -99,7 +106,6 @@ class BaseRunner(metaclass=ABCMeta):
                     progress_display_made = True
             elif not progress_display_made:
                 progress = utils.ProgressMeter(len(data_loader), [batch_time_meter, data_time_meter], prefix=prefix)
- 
 
             batch_time_meter.update(time.time() - start_time)
             start_time = time.time()
@@ -115,6 +121,10 @@ class BaseRunner(metaclass=ABCMeta):
 
         for epoch in range(epochs):
             self.run(train_loader, 'train', epoch, self.train_batch_and_get_metrics)
+
+            for i in range(len(self.lr_schedulers)):
+                self.lr_schedulers[i].step()
+                
             if val_loader is not None:
                 self.test(val_loader, validate=True)
                 if(sign(self.best_meter.avg - self.best_metric_val) == self.best_compare):
