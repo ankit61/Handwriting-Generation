@@ -99,24 +99,28 @@ class SupervisedGeneratorRunner(BaseRunner):
         # Need to resize writer_id to 1D tensor for GeneratorCell invariant shape consistency
         test_sentence['writer_id'] = batch['writer_id'][0].reshape(1,)
 
-        last_hidden = torch.zeros(test_sentence['datapoints'].shape[0], constants.LSTM_HIDDEN_SIZE)
-        last_cell   = torch.zeros(test_sentence['datapoints'].shape[0], constants.LSTM_HIDDEN_SIZE)
+        last_hidden_and_cell_states = []
+        for _ in range(constants.LSTM_DEPTH):
+            last_hidden = torch.zeros(test_sentence['datapoints'].shape[0], constants.LSTM_HIDDEN_SIZE)
+            last_cell   = torch.zeros(test_sentence['datapoints'].shape[0], constants.LSTM_HIDDEN_SIZE)
 
-        if torch.cuda.is_available():
-            last_hidden, last_cell = last_hidden.cuda(), last_cell.cuda()
+            if torch.cuda.is_available():
+                last_hidden, last_cell = last_hidden.cuda(), last_cell.cuda()
 
+            last_hidden_and_cell_states.append((last_hidden, last_cell))
+        
         for i in range(test_sentence['orig_datapoints_len']):
             #do forward pass
             letter_id_sequences = test_sentence['line_text_integers']
             writer_ids = test_sentence['writer_id']
 
-            last_hidden, last_cell = self.nets[0](writer_ids, letter_id_sequences,
-                                                    last_hidden, last_cell)
+            last_hidden_and_cell_states = \
+                self.nets[0](writer_ids, letter_id_sequences, last_hidden_and_cell_states)
 
             #compute loss
             gt = test_sentence['datapoints'][0][i]
             gt_delta_points.append((gt[0], gt[1], gt[2]))
-            generated = last_hidden[:, :3]
+            generated = last_hidden_and_cell_states[-1][0][:, :3]
             
             generated_xy  = generated.narrow(1, 0, 2)
             generated_p   = generated.narrow(1, 2, 1)
