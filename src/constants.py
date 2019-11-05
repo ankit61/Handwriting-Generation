@@ -3,7 +3,7 @@ from pathlib import Path
 import getpass
 from datetime import datetime
 
-CHARACTER_SET_SIZE          = 34  # 68
+CHARACTER_SET_SIZE          = 68
 STYLE_VECTOR_SIZE           = 256 # 128
 PRINT_FREQ                  = 20
 INTERMITTENT_OUTPUT_FREQ    = 10 # Num batches between outputs
@@ -13,10 +13,10 @@ CHARACTER_EMBEDDING_SIZE    = 64 # 64
 LSTM_HIDDEN_SIZE            = 64 # 32
 LSTM_DEPTH                  = 5
 
-GEN_BATCH_SIZE              = 32 # 64
+GEN_BATCH_SIZE              = 128
 
-MAX_LINE_POINTS             = 100 # 800
-MINIMUM_CHAR_FREQUENCY      = 0  # 50
+MAX_LINE_POINTS             = 800
+MINIMUM_CHAR_FREQUENCY      = 50
 MAX_LINE_TEXT_LENGTH        = 66
 PAD_CHARACTER               = '@'
 
