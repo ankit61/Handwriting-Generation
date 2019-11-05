@@ -9,8 +9,10 @@ PRINT_FREQ                  = 20
 INTERMITTENT_OUTPUT_FREQ    = 10 # Num batches between outputs
 
 NUM_WRITERS                 = 195
-CHARACTER_EMBEDDING_SIZE    = 128 # 64
-LSTM_HIDDEN_SIZE            = 128 # 32
+CHARACTER_EMBEDDING_SIZE    = 64 # 64
+LSTM_HIDDEN_SIZE            = 64 # 32
+LSTM_DEPTH                  = 5
+
 GEN_BATCH_SIZE              = 32 # 64
 
 MAX_LINE_POINTS             = 100 # 800

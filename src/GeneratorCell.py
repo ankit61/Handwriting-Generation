@@ -7,16 +7,20 @@ from scipy.stats import ortho_group
 import copy
 
 class GeneratorCell(BaseModule):
-    def __init__(self, invariant_size = constants.STYLE_VECTOR_SIZE, debug = True):
+    def __init__(self, invariant_size = constants.STYLE_VECTOR_SIZE, lstm_depth = constants.LSTM_DEPTH, debug = True):
         super(GeneratorCell, self).__init__(debug)
         self.char_embedding = nn.Embedding(constants.CHARACTER_SET_SIZE, 
                                 constants.CHARACTER_EMBEDDING_SIZE)
         self.invariant = nn.Embedding(constants.NUM_WRITERS, invariant_size)
-        self.lstm_cell = nn.LSTMCell(invariant_size + \
-                            constants.CHARACTER_EMBEDDING_SIZE, 
-                            constants.LSTM_HIDDEN_SIZE)
+        
+        lstm_input_size = invariant_size + constants.CHARACTER_EMBEDDING_SIZE
+        
+        self.lstm_cells = [nn.LSTMCell(lstm_input_size, constants.LSTM_HIDDEN_SIZE)]
+        for _ in range(lstm_depth - 1):
+            self.lstm_cells.append(nn.LSTMCell(lstm_input_size + constants.LSTM_HIDDEN_SIZE, 
+                                    constants.LSTM_HIDDEN_SIZE))
 
-        self.attn      = Attention(self.debug)
+        self.attn = Attention(self.debug)
         self.init_embeddings()
 
     def init_embeddings(self):
@@ -33,11 +37,19 @@ class GeneratorCell(BaseModule):
         self.invariant.weight.requires_grad_()
         self.char_embedding.weight.requires_grad_()
 
-    def forward(self, writer_id, letter_id_sequence, last_hidden, last_cell):
+    def forward(self, writer_id, letter_id_sequence, last_hidden_and_cell_states):
+        assert len(last_hidden_and_cell_states) == len(self.lstm_cells), \
+            f'last hidden and cell states ({len(last_hidden_and_cell_states)}) must be given for all lstms ({len(self.lstm_cells)})'
         invariants      = self.invariant(writer_id)
-        attn_embedding  = self.attn(self.char_embedding(letter_id_sequence), last_hidden)
+        attn_embedding  = self.attn(self.char_embedding(letter_id_sequence), last_hidden_and_cell_states[-1][0])
+
+        hidden_and_cell_states = []
         lstm_input      = torch.cat([attn_embedding, invariants], dim=1)
-        return self.lstm_cell(lstm_input, (last_hidden, last_cell))
+        for i in range(len(self.lstm_cells)):
+            hidden_and_cell_states.append(self.lstm_cells[i](lstm_input, last_hidden_and_cell_states[i]))
+            lstm_input = torch.cat([attn_embedding, invariants, hidden_and_cell_states[-1][0]], dim=1)
+
+        return hidden_and_cell_states
 
     def introspect(self):
         pass

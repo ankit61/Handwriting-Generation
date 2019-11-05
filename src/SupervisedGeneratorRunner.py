@@ -13,6 +13,7 @@ LR = 0.5
 MOMENTUM = 0.9
 WEIGHT_DECAY = 0
 GRADIENT_CLIP_NORM = 5
+UPDATE_BATCHES_PERIOD = 20
 
 class SupervisedGeneratorRunner(BaseRunner):
     def __init__(self, debug = True):
@@ -31,10 +32,17 @@ class SupervisedGeneratorRunner(BaseRunner):
             batch['orig_datapoints_len'].cpu(), batch_first=True)
 
         batch_start = 0
-        last_hidden = torch.zeros(batch['datapoints'].shape[0], constants.LSTM_HIDDEN_SIZE)
-        last_cell   = torch.zeros(batch['datapoints'].shape[0], constants.LSTM_HIDDEN_SIZE)
-        if torch.cuda.is_available():
-            last_hidden, last_cell = last_hidden.cuda(), last_cell.cuda()
+        last_hidden_and_cell_states = []
+
+        #initialize last_hidden_and_cell_states
+        for _ in range(constants.LSTM_DEPTH):
+            last_hidden = torch.zeros(batch['datapoints'].shape[0], constants.LSTM_HIDDEN_SIZE)
+            last_cell   = torch.zeros(batch['datapoints'].shape[0], constants.LSTM_HIDDEN_SIZE)
+
+            if torch.cuda.is_available():
+                last_hidden, last_cell = last_hidden.cuda(), last_cell.cuda()
+
+            last_hidden_and_cell_states.append((last_hidden, last_cell))
 
         loss = 0.0
         self.optimizers[0].zero_grad()
@@ -44,15 +52,16 @@ class SupervisedGeneratorRunner(BaseRunner):
             letter_id_sequences = batch['line_text_integers'][:cur_batch_size, :]
             writer_ids = batch['writer_id'][:cur_batch_size]
 
-            last_hidden = last_hidden[:cur_batch_size, :]
-            last_cell   = last_cell[:cur_batch_size, :]
+            for j in range(constants.LSTM_DEPTH):
+                last_hidden_and_cell_states[j] = (last_hidden_and_cell_states[j][0][:cur_batch_size, :], 
+                                                  last_hidden_and_cell_states[j][1][:cur_batch_size, :])
 
-            last_hidden, last_cell = self.nets[0](writer_ids, letter_id_sequences,
-                                                    last_hidden, last_cell)
+            last_hidden_and_cell_states = self.nets[0](writer_ids, letter_id_sequences,
+                                                    last_hidden_and_cell_states)
 
             #compute loss
             gt = packed_datapoints.data[batch_start:batch_start + cur_batch_size, :]
-            generated = last_hidden[:cur_batch_size, :3]
+            generated = last_hidden_and_cell_states[-1][0][:, :3]
             loss += self.loss_fn(generated, gt)
             if is_train_mode:
                 #calculate gradients but don't update
@@ -60,6 +69,9 @@ class SupervisedGeneratorRunner(BaseRunner):
                 torch.nn.utils.clip_grad_norm_(self.nets[0].parameters(), GRADIENT_CLIP_NORM)
                 self.output_gradient_distributions(self.global_step)
                 self.global_step += 1
+                if i % UPDATE_BATCHES_PERIOD == 0:
+                    self.optimizers[0].step()
+                    self.optimizers[0].zero_grad()
 
             batch_start += cur_batch_size
 
