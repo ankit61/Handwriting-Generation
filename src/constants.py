@@ -15,6 +15,8 @@ MINIMUM_CHAR_FREQUENCY      = 50
 MAX_LINE_TEXT_LENGTH        = 66
 PAD_CHARACTER               = '@'
 
+STYLE_GENERATOR_ARCH        = 'vgg11_bn'
+
 TENSORBOARDX_BASE_DIR = os.path.join(
     Path(os.path.dirname(os.path.abspath(__file__))).parent, 'runs')
 MODELS_BASE_DIR = os.path.join(
