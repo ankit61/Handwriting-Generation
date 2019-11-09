@@ -28,6 +28,8 @@ class StyleGeneratorRunner(BaseRunner):
             best_metric_name, should_minimize_best_metric, debug)
         
     def train_batch_and_get_metrics(self, batch):
+        # batch[0] is input
+        # batch[1] is ground_truths
         out = self.nets[0](batch[0])
         loss = self.loss_fn(out, batch[1])
         acc1 = self.accuracy(out, batch[1])
@@ -39,6 +41,8 @@ class StyleGeneratorRunner(BaseRunner):
         return [('loss', loss.mean().item()), ('acc1', acc1)]
 
     def test_batch_and_get_metrics(self, batch):
+        # batch[0] is input
+        # batch[1] is ground_truths
         out = self.nets[0](batch[0])
         loss = self.loss_fn(out, batch[1])
         acc1 = self.accuracy(out, batch[1])

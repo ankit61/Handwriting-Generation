@@ -16,6 +16,7 @@ MAX_LINE_TEXT_LENGTH        = 66
 PAD_CHARACTER               = '@'
 
 STYLE_GENERATOR_ARCH        = 'vgg11_bn'
+STYLE_GENERATOR_PiC_TYPE    = '.jpg'
 
 TENSORBOARDX_BASE_DIR = os.path.join(
     Path(os.path.dirname(os.path.abspath(__file__))).parent, 'runs')
