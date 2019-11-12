@@ -134,7 +134,7 @@ class HWGANDataset(Dataset):
             if writer_id not in writer_id_to_int_map:
                 writer_id_to_int_map[writer_id] = len(writer_id_to_int_map)
             writer_id = writer_id_to_int_map[writer_id]
-            assert writer_id < constants.NUM_WRITERS, 'writer_id > constants.NUM_WRITERS'
+            assert writer_id < constants.NUM_WRITERS, f'writer_id ({writer_id}) > constants.NUM_WRITERS ({constants.NUM_WRITERS})'
 
             with open(f'{data_dir}/{file_name}') as fp:
                 file_data = fp.read()
