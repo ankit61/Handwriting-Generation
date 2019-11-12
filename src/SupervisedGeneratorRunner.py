@@ -9,7 +9,7 @@ import constants
 import torch
 from tqdm import tqdm
 
-LR = 0.5
+LR = 0.005
 MOMENTUM = 0.9
 WEIGHT_DECAY = 0
 GRADIENT_CLIP_NORM = 5
@@ -62,15 +62,16 @@ class SupervisedGeneratorRunner(BaseRunner):
             #compute loss
             gt = packed_datapoints.data[batch_start:batch_start + cur_batch_size, :]
             generated = last_hidden_and_cell_states[-1][0][:, :3]
-            loss += self.loss_fn(generated, gt)
+            loss += self.loss_fn(generated, gt, self.writer, self.global_step)
             if is_train_mode:
                 #calculate gradients but don't update
                 loss.backward(retain_graph=(i < len(packed_datapoints.batch_sizes) - 1))
                 torch.nn.utils.clip_grad_norm_(self.nets[0].parameters(), GRADIENT_CLIP_NORM)
-                self.output_gradient_distributions(self.global_step)
                 self.global_step += 1
                 if i % UPDATE_BATCHES_PERIOD == 0:
                     self.optimizers[0].step()
+                    self.output_gradient_norms(self.global_step)
+                    self.output_gradient_distributions(self.global_step)
                     self.optimizers[0].zero_grad()
 
             batch_start += cur_batch_size
@@ -89,7 +90,7 @@ class SupervisedGeneratorRunner(BaseRunner):
 
     def intermittent_introspection(self, batch, global_step):
         # Generate a test output for a single sentence
-        gt_delta_points = []
+        gt_delta_points = [(0, 0, 0)]
         generated_delta_points = [(0, 0, 0)]
         test_sentence = {}
         # Get one sentence from batch
@@ -123,8 +124,8 @@ class SupervisedGeneratorRunner(BaseRunner):
             generated = last_hidden_and_cell_states[-1][0][:, :3]
             
             generated_xy  = generated.narrow(1, 0, 2)
-            generated_p   = generated.narrow(1, 2, 1)
-            generated_p = generated_p[0][0]
+            generated_p   = generated.narrow(1, 2, 1)[0][0]
+            generated_p = torch.sigmoid(generated_p)
             # Each generated value is a 2D array
             generated_delta_points.append((generated_xy[0][0], generated_xy[0][1], 1 if generated_p > 0.5 else 0))
 
@@ -132,10 +133,27 @@ class SupervisedGeneratorRunner(BaseRunner):
         delta_points_to_image(gt_delta_points, constants.INTERMITTENT_OUTPUTS_BASE_DIR, f'ground_truth_{global_step}.png')
 
     @staticmethod
-    def generator_loss(generated, gt):
+    def generator_loss(generated, gt, writer=None, global_step=0):
         xys  = generated.narrow(1, 0, 2)
         ps   = generated.narrow(1, 2, 1)
 
+        #print(xys)
+        #print(ps)
+
         mse_loss = nn.L1Loss().cuda() if torch.cuda.is_available() else nn.MSELoss()
         bce_loss = nn.BCEWithLogitsLoss().cuda() if torch.cuda.is_available() else nn.BCEWithLogitsLoss()
-        return mse_loss(xys, gt.narrow(1, 0, 2)) + bce_loss(ps, gt.narrow(1, 2, 1))
+
+        mse_loss_val = mse_loss(xys, gt.narrow(1, 0, 2))
+        bce_loss_val = bce_loss(ps, gt.narrow(1, 2, 1))
+        final_loss_val = mse_loss_val + bce_loss_val
+
+        loss_proportions = {
+            'mse': mse_loss_val / final_loss_val * 100.0,
+            'bce': bce_loss_val / final_loss_val * 100.0
+        }
+
+        if writer != None:
+            for loss_type in loss_proportions:
+                writer.add_scalar(f'Generator/loss_proportion/{loss_type}', loss_proportions[loss_type], global_step=global_step)
+
+        return final_loss_val
