@@ -51,14 +51,32 @@ class BaseRunner(metaclass=ABCMeta):
                 param_distribution_tag = f'{net.__class__.__name__}/{name_prefix}/{param_name}'
                 self.writer.add_histogram(param_distribution_tag, param_val)
     
-    def output_gradient_distributions(self, batch_num, name_prefix="training_gradients"):
+    def output_gradient_distributions(self, global_step, name_prefix="training_gradients"):
         if not self.introspect:
             return
 
         for net in self.nets:
             for param_name, param in net.named_parameters():
                 param_distribution_tag = f'{net.__class__.__name__}/{name_prefix}/{param_name}'
-                self.writer.add_histogram(param_distribution_tag, param.grad, global_step=batch_num)
+                self.writer.add_histogram(param_distribution_tag, param.grad, global_step=global_step)
+    
+    def output_gradient_norms(self, global_step, name_prefix="training_gradient_norms"):
+        if not self.introspect:
+            return
+
+        for net in self.nets:
+            for param_name, param in net.named_parameters():
+                param_distribution_tag = f'{net.__class__.__name__}/{name_prefix}/{param_name}'
+                self.writer.add_scalar(param_distribution_tag, torch.norm(param.grad), global_step=global_step)
+    
+    def output_weight_norms(self, global_step, name_prefix="training_weight_norms"):
+        if not self.introspect:
+            return
+
+        for net in self.nets:
+            for param_name, param in net.named_parameters():
+                param_distribution_tag = f'{net.__class__.__name__}/{name_prefix}/{param_name}'
+                self.writer.add_scalar(param_distribution_tag, torch.norm(param), global_step=global_step)
 
     def set_gpu_keys(self, keys):
         self.keys_for_gpu = keys
@@ -70,12 +88,15 @@ class BaseRunner(metaclass=ABCMeta):
         
         progress_display_made = False
         start_time = time.time()
+
         for i, batch in enumerate(data_loader):
-            batch_number = epoch * len(data_loader) + i
+            batch_number = epoch * len(data_loader) + i + 1
             data_time_meter.update(time.time() - start_time)
 
-            #if batch_number % constants.INTERMITTENT_OUTPUT_FREQ == 0:
-            #    self.intermittent_introspection(batch, batch_number)
+            self.output_weight_norms(epoch)
+
+            if batch_number % constants.INTERMITTENT_OUTPUT_FREQ == 0:
+                self.intermittent_introspection(batch, batch_number)
 
             #transfer from CPU -> GPU asynchronously if at all
             if torch.cuda.is_available():
@@ -91,7 +112,6 @@ class BaseRunner(metaclass=ABCMeta):
 
             metrics = metrics_calc(batch)
             # loss.backward is called in metrics_calc
-            self.output_gradient_distributions(batch_number)
             if metrics is not None:
                 for j, (metric_name, metric_val) in enumerate(metrics):
                     self.writer.add_scalar(os.path.join(self.name, prefix + '_' + 

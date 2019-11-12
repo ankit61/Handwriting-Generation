@@ -1,13 +1,11 @@
-import os
+import os, threading, copy
 import torch
 from torch.utils.data import Dataset
+import torchvision.transforms as transforms
+from collections import defaultdict
+import numpy as np
 from utils import get_char_info_from_data
 import constants
-from collections import defaultdict
-import constants
-import torchvision.transforms as transforms
-import numpy as np
-import copy
 
 class CoordinatesToDeltaTransform(object):
     """Converts a list of x, y, p datapoints to their delta counterparts
@@ -24,7 +22,7 @@ class CoordinatesToDeltaTransform(object):
         for i in range(1, len(datapoints)):
             delta_datapoints.append((datapoints[i][0] - datapoints[i-1][0], datapoints[i][1] - datapoints[i-1][1], datapoints[i][2]))
 
-        sample['datapoints'] = torch.tensor(delta_datapoints, dtype=torch.float)
+        sample['datapoints'] = torch.tensor(delta_datapoints[1:], dtype=torch.float)
         return sample
 
 class LineToOneHotMatrixTransform(object):
@@ -127,15 +125,28 @@ class HWGANDataset(Dataset):
     def load_data(self, data_dir, max_line_points):
         data = []
         writer_id_to_int_map = {}
+        data_load_threads = []
+        files_to_load = list(os.listdir(data_dir))
         
-        for file_name in os.listdir(data_dir):
-            writer_id = file_name.split('.')[0].split('_')[1]
-            
-            if writer_id not in writer_id_to_int_map:
-                writer_id_to_int_map[writer_id] = len(writer_id_to_int_map)
-            writer_id = writer_id_to_int_map[writer_id]
-            assert writer_id < constants.NUM_WRITERS, 'writer_id > constants.NUM_WRITERS'
+        for _ in range(constants.MAX_DATA_LOAD_THREADS):
+            # Appends sample directly to data
+            data_load_thread = threading.Thread(target=self.parallel_data_load, 
+                    args=(files_to_load, data_dir, writer_id_to_int_map, max_line_points, data))
+            data_load_thread.start()
+            data_load_threads.append(data_load_thread)
+        
+        # Wait for transform threads to finish
+        for thread in data_load_threads:
+            thread.join()
 
+        data.sort(key = lambda sample : sample['orig_datapoints_len'], 
+            reverse=True)
+
+        return data
+
+    def parallel_data_load(self, file_name_buf, data_dir, writer_id_to_int_map, max_line_points, data_buf):
+        while len(file_name_buf) > 0:
+            file_name = file_name_buf.pop()
             with open(f'{data_dir}/{file_name}') as fp:
                 file_data = fp.read()
                 file_lines = file_data.split('\n')
@@ -151,6 +162,12 @@ class HWGANDataset(Dataset):
 
             datapoints = torch.tensor(datapoints, dtype=torch.float)
 
+            writer_id = file_name.split('.')[0].split('_')[1]
+            if writer_id not in writer_id_to_int_map:
+                writer_id_to_int_map[writer_id] = len(writer_id_to_int_map)
+            writer_id = writer_id_to_int_map[writer_id]
+            assert writer_id < constants.NUM_WRITERS, 'writer_id > constants.NUM_WRITERS'
+
             sample = {
                 'writer_id': writer_id,
                 'line_text': line_text,
@@ -160,13 +177,7 @@ class HWGANDataset(Dataset):
             }
 
             sample = self.transforms(sample)
-
-            data.append(sample)
-
-        data.sort(key = lambda sample : sample['orig_datapoints_len'], 
-            reverse=True)
-
-        return data
+            data_buf.append(sample)
 
     def __len__(self):
         return len(self.data)
