@@ -70,9 +70,9 @@ class SupervisedGeneratorRunner(BaseRunner):
         last_hidden_and_cell_states = []
 
         #initialize last_hidden_and_cell_states
-        for _ in range(constants.LSTM_DEPTH):
-            last_hidden = torch.zeros(batch['datapoints'].shape[0], constants.LSTM_HIDDEN_SIZE)
-            last_cell   = torch.zeros(batch['datapoints'].shape[0], constants.LSTM_HIDDEN_SIZE)
+        for _ in range(constants.RNN_DEPTH):
+            last_hidden = torch.zeros(batch['datapoints'].shape[0], constants.RNN_HIDDEN_SIZE)
+            last_cell   = torch.zeros(batch['datapoints'].shape[0], constants.RNN_HIDDEN_SIZE)
 
             if torch.cuda.is_available():
                 last_hidden, last_cell = last_hidden.cuda(), last_cell.cuda()
@@ -88,9 +88,13 @@ class SupervisedGeneratorRunner(BaseRunner):
             writer_ids = batch['writer_id'][:cur_batch_size]
             gt = packed_datapoints.data[batch_start:batch_start + cur_batch_size, :]
 
-            for j in range(constants.LSTM_DEPTH):
-                last_hidden_and_cell_states[j] = (last_hidden_and_cell_states[j][0][:cur_batch_size, :], 
-                                                  last_hidden_and_cell_states[j][1][:cur_batch_size, :])
+            for j in range(constants.RNN_DEPTH):
+                if last_hidden_and_cell_states[j][1] is None:
+                    last_hidden_and_cell_states[j] = (last_hidden_and_cell_states[j][0][:cur_batch_size, :], 
+                                                        None)
+                else:
+                    last_hidden_and_cell_states[j] = (last_hidden_and_cell_states[j][0][:cur_batch_size, :],
+                                                        last_hidden_and_cell_states[j][1][:cur_batch_size, :])
 
             if(np.random.rand() < self.force_teach_probability):
                 new_hidden = torch.zeros(last_hidden_and_cell_states[-1][0].shape)
@@ -145,12 +149,18 @@ class SupervisedGeneratorRunner(BaseRunner):
         test_sentence['writer_id'] = batch['writer_id'][0].reshape(1,)
 
         last_hidden_and_cell_states = []
-        for _ in range(constants.LSTM_DEPTH):
-            last_hidden = torch.zeros(test_sentence['datapoints'].shape[0], constants.LSTM_HIDDEN_SIZE)
-            last_cell   = torch.zeros(test_sentence['datapoints'].shape[0], constants.LSTM_HIDDEN_SIZE)
+        for _ in range(constants.RNN_DEPTH):
+            last_hidden = torch.zeros(test_sentence['datapoints'].shape[0], constants.RNN_HIDDEN_SIZE)
+            if self.nets[0].rnn_type == 'LSTM':
+                last_cell = torch.zeros(test_sentence['datapoints'].shape[0], constants.RNN_HIDDEN_SIZE)
+            else:
+                last_cell = None
 
             if torch.cuda.is_available():
-                last_hidden, last_cell = last_hidden.cuda(), last_cell.cuda()
+                if last_cell is None:
+                    last_hidden = last_hidden.cuda()
+                else:
+                    last_hidden, last_cell = last_hidden.cuda(), last_cell.cuda()
 
             last_hidden_and_cell_states.append((last_hidden, last_cell))
         
@@ -166,7 +176,7 @@ class SupervisedGeneratorRunner(BaseRunner):
             gt = test_sentence['datapoints'][0][i]
             gt_delta_points.append((gt[0], gt[1], gt[2]))
             generated = last_hidden_and_cell_states[-1][0][:, :3]
-            
+
             generated_xy  = generated.narrow(1, 0, 2)
             generated_p   = generated.narrow(1, 2, 1)[0][0]
             generated_p = torch.sigmoid(generated_p)

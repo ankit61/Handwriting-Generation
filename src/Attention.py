@@ -8,7 +8,7 @@ class Attention(BaseModule):
     def __init__(self,  debug = True):
         super(Attention, self).__init__(debug)
         self.attn = nn.Linear(constants.CHARACTER_EMBEDDING_SIZE * 
-            constants.MAX_LINE_TEXT_LENGTH + constants.LSTM_HIDDEN_SIZE, 
+            constants.MAX_LINE_TEXT_LENGTH + constants.RNN_HIDDEN_SIZE, 
             constants.MAX_LINE_TEXT_LENGTH)
 
     def forward(self, letter_embedding_sequence, last_hidden):
