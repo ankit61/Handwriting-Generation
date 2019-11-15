@@ -103,7 +103,7 @@ def delta_points_to_image(delta_points, output_dir, file_name):
         x, y, _ = cur_point
         cur_point = (x + delta_x, y + delta_y, p)
         plot_x.append(cur_point[0])
-        plot_y.append(10000 - cur_point[1])
+        plot_y.append(1 - cur_point[1])
         if p == 1:
             # Plot current stroke and start new stroke
             plt.plot(plot_x, plot_y, 'k')
@@ -114,6 +114,52 @@ def delta_points_to_image(delta_points, output_dir, file_name):
     if len(plot_x) != 0:
         plt.plot(plot_x, plot_y, 'k')
     
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    plt.xlim(-1, 1)
+    plt.ylim(-1, 1)
+    plt.savefig(f'{output_dir}/{file_name}')
+    plt.clf()
+
+def delta_points_to_image_discrete(delta_points, output_dir, file_name):
+    print(delta_points)
+    cur_point = (0, 0, 0)
+    i = 0
+    plot_x = []
+    plot_y = []
+    plt.xlim(-1, 1)
+    plt.ylim(-1, 1)
+
+    while i < len(delta_points):
+        delta_x, delta_y, p = delta_points[i]
+        x, y, _ = cur_point
+        cur_point = (x + delta_x, y + delta_y, p)
+        plot_x.append(cur_point[0])
+        plot_y.append(1 - cur_point[1])
+        if p == 1:
+            # Plot current stroke and start new stroke
+            plt.plot(plot_x, plot_y, 'ko')
+            plot_x = []
+            plot_y = []
+        i += 1
+    # Plot any remaining points (especially for generated points)
+    if len(plot_x) != 0:
+        plt.plot(plot_x, plot_y, 'ko')
+    
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    plt.savefig(f'{output_dir}/{file_name}')
+    plt.clf()
+
+def points_to_image_discrete(delta_points, output_dir, file_name):
+    print(delta_points)
+    cur_point = (0, 0, 0)
+    i = 0
+    plot_x = [x for x, _, _ in delta_points]
+    plot_y = [y for _, y, _ in delta_points]
+    plt.xlim(-1, 1)
+    plt.ylim(-1, 1)
+    plt.plot(plot_x, plot_y, 'ko')
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     plt.savefig(f'{output_dir}/{file_name}')
