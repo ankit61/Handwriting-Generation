@@ -29,13 +29,12 @@ class GeneratorLoss(BaseModule):
 
         mse_loss = nn.L1Loss().cuda() if torch.cuda.is_available() else nn.MSELoss()
         bce_loss = nn.BCEWithLogitsLoss().cuda() if torch.cuda.is_available() else nn.BCEWithLogitsLoss()
-
         loss_vals_weights = {
             'mse': (mse_loss(xys, gt.narrow(1, 0, 2)), 1),
             'bce': (bce_loss(ps, gt.narrow(1, 2, 1)), 22),
             'invariant_regularization': (self.model.invariant.weight.norm(), 0.05)
         }
-
+        
         final_loss_val = sum([v[0] * v[1] for k, v in loss_vals_weights.items()])
 
         if self.writer != None:
@@ -100,7 +99,7 @@ class SupervisedGeneratorRunner(BaseRunner):
                 new_hidden = torch.zeros(last_hidden_and_cell_states[-1][0].shape)
                 new_hidden[:, 3:] = last_hidden_and_cell_states[-1][0][:, 3:]
                 new_hidden[:, :2] = gt.narrow(1, 0, 2)
-                new_hidden[:, 2]  = gt.narrow(1, 2, 1)
+                new_hidden[:, 2]  = torch.squeeze(gt.narrow(1, 2, 1), axis=1)
                 last_hidden_and_cell_states = last_hidden_and_cell_states[:-1] + \
                         [(new_hidden, last_hidden_and_cell_states[-1][1])]
 
