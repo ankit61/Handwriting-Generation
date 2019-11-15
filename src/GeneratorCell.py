@@ -25,6 +25,7 @@ class GeneratorCell(BaseModule):
             self.rnn_cells.append(rnn_cell_type(rnn_input_size + constants.RNN_HIDDEN_SIZE, 
                                     constants.RNN_HIDDEN_SIZE))
 
+        self.lstm_cells = nn.ModuleList(self.lstm_cells)
         self.attn = Attention(self.debug)
         self.init_embeddings()
 

@@ -62,6 +62,27 @@ class LineTextToIntegerTransform(object):
         sample.pop('line_text', None)
         return sample
 
+class NormalizeDatapointsTransform(object):
+    """Applies Max-Min Normalization to the list of datapoints (x, y, p) to reduce them to (0, 1)"""
+
+    def __init__(self, max_line_points= constants.MAX_LINE_POINTS):
+        self.max_line_points = max_line_points
+
+    def __call__(self, sample):
+        datapoints = sample['datapoints']
+        if not torch.is_tensor(datapoints):
+            datapoints = torch.tensor(datapoints, dtype=torch.float)
+
+        assert (self.max_line_points - len(datapoints)) >= 0, f'max_line_points ({self.max_line_points}) must be larger or equal to length of datapoints ({len(datapoints)})'
+
+
+        x_vals, y_vals = datapoints[:, 0], datapoints[:, 1]
+        min_x, max_x, min_y, max_y = min(x_vals), max(x_vals), min(y_vals), max(y_vals)
+        datapoints = [((x-min_x)/(max_x-min_x), (y-min_y)/(max_y-min_y), p) for x, y, p in datapoints]
+
+        sample['datapoints'] = torch.tensor(datapoints, dtype=torch.float)
+        return sample
+
 class PadDatapointsTransform(object):
     """Pads the list of datapoints (x, y, p) to max_line_points constants."""
 
@@ -114,6 +135,7 @@ class HWGANDataset(Dataset):
                 constants.CHARACTER_SET_SIZE ({constants.CHARACTER_SET_SIZE})'''
 
         self.transforms = transforms.Compose([
+            NormalizeDatapointsTransform(),
             CoordinatesToDeltaTransform(),
             PadLineTextTransform(),
             LineTextToIntegerTransform(self.char_to_idx_map),
