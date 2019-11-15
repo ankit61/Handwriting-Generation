@@ -62,6 +62,27 @@ class LineTextToIntegerTransform(object):
         sample.pop('line_text', None)
         return sample
 
+class NormalizeDatapointsTransform(object):
+    """Applies Max-Min Normalization to the list of datapoints (x, y, p) to reduce them to (0, 1)"""
+
+    def __init__(self, max_line_points= constants.MAX_LINE_POINTS):
+        self.max_line_points = max_line_points
+
+    def __call__(self, sample):
+        datapoints = sample['datapoints']
+        if not torch.is_tensor(datapoints):
+            datapoints = torch.tensor(datapoints, dtype=torch.float)
+
+        assert (self.max_line_points - len(datapoints)) >= 0, f'max_line_points ({self.max_line_points}) must be larger or equal to length of datapoints ({len(datapoints)})'
+
+
+        x_vals, y_vals = datapoints[:, 0], datapoints[:, 1]
+        min_x, max_x, min_y, max_y = min(x_vals), max(x_vals), min(y_vals), max(y_vals)
+        datapoints = [((x-min_x)/(max_x-min_x), (y-min_y)/(max_y-min_y), p) for x, y, p in datapoints]
+
+        sample['datapoints'] = torch.tensor(datapoints, dtype=torch.float)
+        return sample
+
 class PadDatapointsTransform(object):
     """Pads the list of datapoints (x, y, p) to max_line_points constants."""
 
@@ -108,12 +129,12 @@ class HWGANDataset(Dataset):
         # Get characters to ignore and char-and-index mappings based on data
         self.chars_to_ignore, self.idx_to_char_map, self.char_to_idx_map = \
             get_char_info_from_data(data_dir, max_line_points, constants.MINIMUM_CHAR_FREQUENCY)
-
         assert len(self.char_to_idx_map) == constants.CHARACTER_SET_SIZE, \
             f'''total characters ({len(self.char_to_idx_map)}) don't match 
                 constants.CHARACTER_SET_SIZE ({constants.CHARACTER_SET_SIZE})'''
 
         self.transforms = transforms.Compose([
+            NormalizeDatapointsTransform(),
             CoordinatesToDeltaTransform(),
             PadLineTextTransform(),
             LineTextToIntegerTransform(self.char_to_idx_map),

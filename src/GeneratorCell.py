@@ -20,6 +20,7 @@ class GeneratorCell(BaseModule):
             self.lstm_cells.append(nn.LSTMCell(lstm_input_size + constants.LSTM_HIDDEN_SIZE, 
                                     constants.LSTM_HIDDEN_SIZE))
 
+        self.lstm_cells = nn.ModuleList(self.lstm_cells)
         self.attn = Attention(self.debug)
         self.init_embeddings()
 
