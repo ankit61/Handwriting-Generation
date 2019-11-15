@@ -7,18 +7,23 @@ from scipy.stats import ortho_group
 import copy
 
 class GeneratorCell(BaseModule):
-    def __init__(self, invariant_size = constants.STYLE_VECTOR_SIZE, lstm_depth = constants.LSTM_DEPTH, debug = True):
+    def __init__(self, invariant_size = constants.STYLE_VECTOR_SIZE, rnn_depth = constants.RNN_DEPTH, rnn_type = constants.RNN_TYPE, 
+        debug = True):
         super(GeneratorCell, self).__init__(debug)
+        assert rnn_type == 'LSTM' or rnn_type == 'GRU', \
+            'rnn_type should be \'LSTM\' or \'GRU\''
+        
         self.char_embedding = nn.Embedding(constants.CHARACTER_SET_SIZE, 
                                 constants.CHARACTER_EMBEDDING_SIZE)
         self.invariant = nn.Embedding(constants.NUM_WRITERS, invariant_size)
+        self.rnn_type = rnn_type
+        rnn_cell_type = nn.GRUCell if rnn_type == 'GRU' else nn.LSTMCell
+        rnn_input_size = invariant_size + constants.CHARACTER_EMBEDDING_SIZE
         
-        lstm_input_size = invariant_size + constants.CHARACTER_EMBEDDING_SIZE
-        
-        self.lstm_cells = [nn.LSTMCell(lstm_input_size, constants.LSTM_HIDDEN_SIZE)]
-        for _ in range(lstm_depth - 1):
-            self.lstm_cells.append(nn.LSTMCell(lstm_input_size + constants.LSTM_HIDDEN_SIZE, 
-                                    constants.LSTM_HIDDEN_SIZE))
+        self.rnn_cells = [rnn_cell_type(rnn_input_size, constants.RNN_HIDDEN_SIZE)]
+        for _ in range(rnn_depth - 1):
+            self.rnn_cells.append(rnn_cell_type(rnn_input_size + constants.RNN_HIDDEN_SIZE, 
+                                    constants.RNN_HIDDEN_SIZE))
 
         self.attn = Attention(self.debug)
         self.init_embeddings()
@@ -38,16 +43,22 @@ class GeneratorCell(BaseModule):
         self.char_embedding.weight.requires_grad_()
 
     def forward(self, writer_id, letter_id_sequence, last_hidden_and_cell_states):
-        assert len(last_hidden_and_cell_states) == len(self.lstm_cells), \
-            f'last hidden and cell states ({len(last_hidden_and_cell_states)}) must be given for all lstms ({len(self.lstm_cells)})'
+        assert len(last_hidden_and_cell_states) == len(self.rnn_cells), \
+            f'last hidden and cell states ({len(last_hidden_and_cell_states)}) must be given for all rnn cells ({len(self.rnn_cells)})'
         invariants      = self.invariant(writer_id)
         attn_embedding  = self.attn(self.char_embedding(letter_id_sequence), last_hidden_and_cell_states[-1][0])
 
         hidden_and_cell_states = []
-        lstm_input      = torch.cat([attn_embedding, invariants], dim=1)
-        for i in range(len(self.lstm_cells)):
-            hidden_and_cell_states.append(self.lstm_cells[i](lstm_input, last_hidden_and_cell_states[i]))
-            lstm_input = torch.cat([attn_embedding, invariants, hidden_and_cell_states[-1][0]], dim=1)
+        rnn_input      = torch.cat([attn_embedding, invariants], dim=1)
+        for i in range(len(self.rnn_cells)):
+            if self.rnn_type == 'GRU':
+                rnn_out = self.rnn_cells[i](rnn_input, last_hidden_and_cell_states[i][0])
+                hidden_and_cell_states.append((rnn_out, None))
+            else: # LSTM
+                rnn_out = self.rnn_cells[i](rnn_input, last_hidden_and_cell_states[i])
+                hidden_and_cell_states.append(rnn_out)
+
+            rnn_input = torch.cat([attn_embedding, invariants, hidden_and_cell_states[-1][0]], dim=1)
 
         return hidden_and_cell_states
 
