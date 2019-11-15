@@ -1,6 +1,6 @@
 from GeneratorCell import GeneratorCell
 from BaseRunner import BaseRunner
-from utils import delta_points_to_image
+from utils import delta_points_to_image, delta_points_to_image_discrete, points_to_image_discrete
 import constants
 import torch.optim as optim
 import torch.nn as nn
@@ -15,7 +15,7 @@ LR = 0.05
 MOMENTUM = 0.9
 WEIGHT_DECAY = 0
 GRADIENT_CLIP_NORM = 5
-UPDATE_BATCHES_PERIOD = 1
+UPDATE_BATCHES_PERIOD = 20
 
 class GeneratorLoss(BaseModule):
     def __init__(self, writer, model, debug=True):
@@ -26,6 +26,9 @@ class GeneratorLoss(BaseModule):
     def forward(self, generated, gt, global_step):
         xys  = generated.narrow(1, 0, 2)
         ps   = generated.narrow(1, 2, 1)
+
+        #print(xys)
+        #print(ps)
 
         mse_loss = nn.L1Loss().cuda() if torch.cuda.is_available() else nn.MSELoss()
         bce_loss = nn.BCEWithLogitsLoss().cuda() if torch.cuda.is_available() else nn.BCEWithLogitsLoss()
@@ -71,8 +74,8 @@ class SupervisedGeneratorRunner(BaseRunner):
 
         #initialize last_hidden_and_cell_states
         for _ in range(constants.RNN_DEPTH):
-            last_hidden = torch.zeros(batch['datapoints'].shape[0], constants.RNN_HIDDEN_SIZE)
-            last_cell   = torch.zeros(batch['datapoints'].shape[0], constants.RNN_HIDDEN_SIZE)
+            last_hidden = torch.zeros(batch['datapoints'].shape[0], constants.RNN_HIDDEN_SIZE).uniform_(-1, 1)
+            last_cell   = torch.zeros(batch['datapoints'].shape[0], constants.RNN_HIDDEN_SIZE).uniform_(-1, 1)
 
             if torch.cuda.is_available():
                 last_hidden, last_cell = last_hidden.cuda(), last_cell.cuda()
@@ -174,14 +177,14 @@ class SupervisedGeneratorRunner(BaseRunner):
 
             #compute loss
             gt = test_sentence['datapoints'][0][i]
-            gt_delta_points.append((gt[0], gt[1], gt[2]))
+            gt_delta_points.append((float(gt[0]), float(gt[1]), float(gt[2])))
             generated = last_hidden_and_cell_states[-1][0][:, :3]
 
             generated_xy  = generated.narrow(1, 0, 2)
             generated_p   = generated.narrow(1, 2, 1)[0][0]
             generated_p = torch.sigmoid(generated_p)
             # Each generated value is a 2D array
-            generated_delta_points.append((generated_xy[0][0], generated_xy[0][1], 1 if generated_p > 0.5 else 0))
+            generated_delta_points.append((float(generated_xy[0][0]), float(generated_xy[0][1]), 1 if generated_p > 0.5 else 0))
 
-        delta_points_to_image(generated_delta_points, constants.INTERMITTENT_OUTPUTS_BASE_DIR, f'output_{global_step}.png')
-        delta_points_to_image(gt_delta_points, constants.INTERMITTENT_OUTPUTS_BASE_DIR, f'ground_truth_{global_step}.png')
+        delta_points_to_image_discrete(generated_delta_points, constants.INTERMITTENT_OUTPUTS_BASE_DIR, f'output_{global_step}.png')
+        delta_points_to_image_discrete(gt_delta_points, constants.INTERMITTENT_OUTPUTS_BASE_DIR, f'ground_truth_{global_step}.png')
