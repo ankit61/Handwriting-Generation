@@ -129,8 +129,9 @@ class HWGANDataset(Dataset):
         # Get characters to ignore and char-and-index mappings based on data
         self.chars_to_ignore, self.idx_to_char_map, self.char_to_idx_map = \
             get_char_info_from_data(data_dir, max_line_points, constants.MINIMUM_CHAR_FREQUENCY)
-        assert len(self.char_to_idx_map) == constants.CHARACTER_SET_SIZE, \
-            f'''total characters ({len(self.char_to_idx_map)}) don't match 
+
+        assert len(self.char_to_idx_map) < constants.CHARACTER_SET_SIZE, \
+            f'''total characters ({len(self.char_to_idx_map)}) need to be smaller than 
                 constants.CHARACTER_SET_SIZE ({constants.CHARACTER_SET_SIZE})'''
 
         self.transforms = transforms.Compose([
