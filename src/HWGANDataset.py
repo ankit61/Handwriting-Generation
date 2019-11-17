@@ -164,6 +164,8 @@ class HWGANDataset(Dataset):
         data.sort(key = lambda sample : sample['orig_datapoints_len'], 
             reverse=True)
 
+        if constants.STANDARDIZE_POINTS : data = self.standardize_datapoints(data)
+
         return data
 
     def parallel_data_load(self, file_name_buf, data_dir, writer_id_to_int_map, max_line_points, data_buf):
@@ -180,7 +182,7 @@ class HWGANDataset(Dataset):
             datapoints = [None] * num_points
             for i, line in enumerate(line_datapoints):
                 split_line = line.split(',')
-                datapoints[i] = (float(split_line[0]), float(split_line[1]), float(split_line[2])) # (x, y, p)
+                datapoints[i] = [float(split_line[0]), float(split_line[1]), float(split_line[2])] # (x, y, p)
 
             datapoints = torch.tensor(datapoints, dtype=torch.float)
 
@@ -200,6 +202,23 @@ class HWGANDataset(Dataset):
 
             sample = self.transforms(sample)
             data_buf.append(sample)
+
+    def standardize_datapoints(self, data):
+        delta_xs, delta_ys = [], []
+        for sample in data:
+            for x, y, _ in sample['datapoints']:
+                delta_xs.append(x)
+                delta_ys.append(y)
+        mean_x, std_x = np.mean(delta_xs), np.std(delta_xs)
+        mean_y, std_y = np.mean(delta_ys), np.std(delta_ys)
+
+        for sample in data:
+            datapoints = np.array(sample['datapoints'])
+            datapoints[:, 0] = (datapoints[:, 0] - mean_x) / std_x
+            datapoints[:, 1] = (datapoints[:, 1] - mean_y) / std_y
+            sample['datapoints'] = datapoints
+
+        return data
 
     def __len__(self):
         return len(self.data)
