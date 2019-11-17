@@ -107,6 +107,8 @@ class SupervisedGeneratorRunner(BaseRunner):
 
             if(np.random.rand() < self.force_teach_probability):
                 new_hidden = torch.zeros(last_hidden_and_cell_states[-1][0].shape)
+                if torch.cuda.is_available():
+                    new_hidden = new_hidden.cuda()
                 new_hidden[:, 3:] = last_hidden_and_cell_states[-1][0][:, 3:]
                 new_hidden[:, :2] = gt.narrow(1, 0, 2)
                 new_hidden[:, 2]  = torch.squeeze(gt.narrow(1, 2, 1), axis=1)
