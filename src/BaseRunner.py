@@ -10,8 +10,8 @@ import os
 from numpy import sign
 import torch.optim.lr_scheduler as lr_scheduler
 
-LR_DECAY_STEP_SIZE  = 10
-LR_DECAY_FACTOR     = 0.5
+LR_DECAY_STEP_SIZE  = 5
+LR_DECAY_FACTOR     = 0.95
 
 class BaseRunner(metaclass=ABCMeta):
     #inspired by https://github.com/pytorch/examples/blob/master/imagenet/main.py
@@ -41,6 +41,8 @@ class BaseRunner(metaclass=ABCMeta):
         if(torch.cuda.is_available()):
             for i in range(len(self.nets)):
                 self.nets[i] = self.nets[i].cuda()
+
+            loss_fn = loss_fn.cuda()
 
     def output_weight_distribution(self, name_prefix="training_weights"):
         if not self.introspect:

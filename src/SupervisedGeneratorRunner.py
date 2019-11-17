@@ -14,8 +14,8 @@ from HWGANDataset import HWGANDataset
 
 LR = 0.05
 MOMENTUM = 0.9
-WEIGHT_DECAY = 0
-GRADIENT_CLIP_NORM = 100
+WEIGHT_DECAY = 4e-4
+GRADIENT_CLIP_NORM = 200
 UPDATE_BATCHES_PERIOD = 20
 
 class GeneratorLoss(BaseModule):
@@ -57,7 +57,7 @@ class GeneratorLoss(BaseModule):
 class SupervisedGeneratorRunner(BaseRunner):
     def __init__(self, debug = True):
         model = GeneratorCell()
-        optimizer = optim.Adam(model.parameters(), lr=LR)
+        optimizer = optim.Adam(model.parameters(), lr=LR, weight_decay=WEIGHT_DECAY)
         loss_fn = GeneratorLoss(None, model)
         self.global_step = 0
         self.force_teach_probability = 1
@@ -91,7 +91,7 @@ class SupervisedGeneratorRunner(BaseRunner):
         loss = 0.0
         self.optimizers[0].zero_grad()
 
-        for i, cur_batch_size in tqdm(enumerate(packed_datapoints.batch_sizes)):
+        for i, cur_batch_size in enumerate(packed_datapoints.batch_sizes):
             #do forward pass
             letter_id_sequences = batch['line_text_integers'][:cur_batch_size, :]
             writer_ids = batch['writer_id'][:cur_batch_size]
@@ -121,6 +121,7 @@ class SupervisedGeneratorRunner(BaseRunner):
             loss += self.loss_fn(final_out, gt, self.global_step)
             if is_train_mode:
                 #calculate gradients but don't update
+                #FIXME: check correctness of retain graph?
                 loss.backward(retain_graph=(i < len(packed_datapoints.batch_sizes) - 1))
                 torch.nn.utils.clip_grad_norm_(self.nets[0].parameters(), GRADIENT_CLIP_NORM)
                 self.global_step += 1
