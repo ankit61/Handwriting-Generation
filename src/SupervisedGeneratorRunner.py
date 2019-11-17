@@ -10,32 +10,38 @@ import torch
 from tqdm import tqdm
 from BaseModule import BaseModule
 import numpy as np
+from HWGANDataset import HWGANDataset
 
 LR = 0.05
 MOMENTUM = 0.9
 WEIGHT_DECAY = 0
-GRADIENT_CLIP_NORM = 5
+GRADIENT_CLIP_NORM = 100
 UPDATE_BATCHES_PERIOD = 20
 
 class GeneratorLoss(BaseModule):
     def __init__(self, writer, model, debug=True):
         super(GeneratorLoss, self).__init__(debug)
-        self.writer = writer
-        self.model  = model
+        self.writer  = writer
+        self.model   = model
+        self.xy_loss = nn.MSELoss()
+        self.p_loss  = nn.BCEWithLogitsLoss(reduction='mean', 
+                            pos_weight=HWGANDataset.pos_weight)
+
+        if torch.cuda.is_available():
+            self.xy_loss = self.xy_loss.cuda()
+            self.p_loss = self.p_loss.cuda()
 
     def forward(self, generated, gt, global_step):
         xys  = generated.narrow(1, 0, 2)
         ps   = generated.narrow(1, 2, 1)
+        
+        print(xys[0].data, gt.narrow(1, 0, 2)[0].data)
 
-        #print(xys)
-        #print(ps)
-
-        mse_loss = nn.L1Loss().cuda() if torch.cuda.is_available() else nn.MSELoss()
-        bce_loss = nn.BCEWithLogitsLoss().cuda() if torch.cuda.is_available() else nn.BCEWithLogitsLoss()
         loss_vals_weights = {
-            'mse': (mse_loss(xys, gt.narrow(1, 0, 2)), 1),
-            'bce': (bce_loss(ps, gt.narrow(1, 2, 1)), 22),
+            'mse': (self.xy_loss(xys, gt.narrow(1, 0, 2)), 1),
+            'bce': (self.p_loss(ps, gt.narrow(1, 2, 1)), 100),
             'invariant_regularization': (self.model.invariant.weight.norm(), 0.05)
+            #'big_step_penalty': (xys.norm(), 50)
         }
         
         final_loss_val = sum([v[0] * v[1] for k, v in loss_vals_weights.items()])
@@ -43,7 +49,8 @@ class GeneratorLoss(BaseModule):
         if self.writer != None:
             for loss_name, loss_val_weight in loss_vals_weights.items():
                 loss_proportion = loss_val_weight[0] * loss_val_weight[1] / final_loss_val
-                self.writer.add_scalar(f'Generator/loss_proportion/{loss_name}', loss_proportion, global_step=global_step)
+                self.writer.add_scalar(self.__class__.__name__ + f'/loss_proportion/{loss_name}', loss_proportion, global_step=global_step)
+                self.writer.add_scalar(self.__class__.__name__ + f'/loss_raw/{loss_name}', loss_val_weight[0], global_step=global_step)
 
         return final_loss_val
 
@@ -106,19 +113,18 @@ class SupervisedGeneratorRunner(BaseRunner):
                 last_hidden_and_cell_states = last_hidden_and_cell_states[:-1] + \
                         [(new_hidden, last_hidden_and_cell_states[-1][1])]
 
-            last_hidden_and_cell_states = self.nets[0](writer_ids, letter_id_sequences,
+            final_out, last_hidden_and_cell_states = self.nets[0](writer_ids, letter_id_sequences,
                                                     last_hidden_and_cell_states)
 
             #compute loss
 
-            generated = last_hidden_and_cell_states[-1][0][:, :3]
-            loss += self.loss_fn(generated, gt, self.global_step)
+            loss += self.loss_fn(final_out, gt, self.global_step)
             if is_train_mode:
                 #calculate gradients but don't update
                 loss.backward(retain_graph=(i < len(packed_datapoints.batch_sizes) - 1))
                 torch.nn.utils.clip_grad_norm_(self.nets[0].parameters(), GRADIENT_CLIP_NORM)
                 self.global_step += 1
-                if i % UPDATE_BATCHES_PERIOD == 0:
+                if (i + 1) % UPDATE_BATCHES_PERIOD == 0:
                     self.optimizers[0].step()
                     self.output_gradient_norms(self.global_step)
                     self.output_gradient_distributions(self.global_step)
@@ -171,13 +177,13 @@ class SupervisedGeneratorRunner(BaseRunner):
             letter_id_sequences = test_sentence['line_text_integers']
             writer_ids = test_sentence['writer_id']
 
-            last_hidden_and_cell_states = \
+            final_out, last_hidden_and_cell_states = \
                 self.nets[0](writer_ids, letter_id_sequences, last_hidden_and_cell_states)
 
             #compute loss
             gt = test_sentence['datapoints'][0][i]
             gt_delta_points.append((float(gt[0]), float(gt[1]), float(gt[2])))
-            generated = last_hidden_and_cell_states[-1][0][:, :3]
+            generated = final_out
 
             generated_xy  = generated.narrow(1, 0, 2)
             generated_p   = generated.narrow(1, 2, 1)[0][0]

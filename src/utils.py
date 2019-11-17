@@ -122,7 +122,6 @@ def delta_points_to_image(delta_points, output_dir, file_name):
     plt.clf()
 
 def delta_points_to_image_discrete(delta_points, output_dir, file_name):
-    print(delta_points)
     cur_point = (0, 0, 0)
     i = 0
     plot_x = []
@@ -152,7 +151,6 @@ def delta_points_to_image_discrete(delta_points, output_dir, file_name):
     plt.clf()
 
 def points_to_image_discrete(delta_points, output_dir, file_name):
-    print(delta_points)
     cur_point = (0, 0, 0)
     i = 0
     plot_x = [x for x, _, _ in delta_points]

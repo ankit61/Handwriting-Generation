@@ -7,11 +7,12 @@ from scipy.stats import ortho_group
 import copy
 
 class GeneratorCell(BaseModule):
-    def __init__(self, invariant_size = constants.STYLE_VECTOR_SIZE, rnn_depth = constants.RNN_DEPTH, rnn_type = constants.RNN_TYPE, 
+    def __init__(self, invariant_size = constants.STYLE_VECTOR_SIZE, rnn_type = constants.RNN_TYPE, 
         debug = True):
         super(GeneratorCell, self).__init__(debug)
         assert rnn_type == 'LSTM' or rnn_type == 'GRU', \
             'rnn_type should be \'LSTM\' or \'GRU\''
+        assert constants.RNN_DEPTH > 0
         
         self.char_embedding = nn.Embedding(constants.CHARACTER_SET_SIZE, 
                                 constants.CHARACTER_EMBEDDING_SIZE)
@@ -20,12 +21,13 @@ class GeneratorCell(BaseModule):
         rnn_cell_type = nn.GRUCell if rnn_type == 'GRU' else nn.LSTMCell
         rnn_input_size = invariant_size + constants.CHARACTER_EMBEDDING_SIZE
         
-        self.rnn_cells = [rnn_cell_type(rnn_input_size, constants.RNN_HIDDEN_SIZE)]
-        for _ in range(rnn_depth - 1):
+        self.rnn_cells = nn.ModuleList([rnn_cell_type(rnn_input_size, constants.RNN_HIDDEN_SIZE)])
+        for _ in range(constants.RNN_DEPTH - 1):
             self.rnn_cells.append(rnn_cell_type(rnn_input_size + constants.RNN_HIDDEN_SIZE, 
                                     constants.RNN_HIDDEN_SIZE))
 
         self.attn = Attention(self.debug)
+        self.fc   = nn.Linear(constants.RNN_HIDDEN_SIZE * constants.RNN_DEPTH, 3)
         self.init_embeddings()
 
     def init_embeddings(self):
@@ -60,7 +62,11 @@ class GeneratorCell(BaseModule):
 
             rnn_input = torch.cat([attn_embedding, invariants, hidden_and_cell_states[-1][0]], dim=1)
 
-        return hidden_and_cell_states
+        final_in  = torch.cat(
+            [hidden_and_cell_states[i][0] for i in range(constants.RNN_DEPTH)], dim=1)
+        final_out = self.fc(final_in)
+        
+        return final_out, hidden_and_cell_states
 
     def introspect(self):
         pass
