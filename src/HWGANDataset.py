@@ -124,6 +124,8 @@ class HWGANDataset(Dataset):
     * Data files should have line_text on line 1, num_data_points on line 2 and 
         x, y, p on each line thereafter
     """
+    
+    pos_weight = None
 
     def __init__(self, data_dir = constants.DATA_BASE_DIR, max_line_points=constants.MAX_LINE_POINTS):
         # Get characters to ignore and char-and-index mappings based on data
@@ -135,7 +137,7 @@ class HWGANDataset(Dataset):
                 constants.CHARACTER_SET_SIZE ({constants.CHARACTER_SET_SIZE})'''
 
         self.transforms = transforms.Compose([
-            NormalizeDatapointsTransform(),
+            #NormalizeDatapointsTransform(),
             CoordinatesToDeltaTransform(),
             PadLineTextTransform(),
             LineTextToIntegerTransform(self.char_to_idx_map),
@@ -144,6 +146,21 @@ class HWGANDataset(Dataset):
 
         self.data = self.load_data(data_dir, max_line_points)
 
+        pos, neg = 0, 0 
+        for d in self.data:
+            for point in d['datapoints']:
+                pos += point[2].item()
+                neg += 1 - point[2].item()
+        pos_weight = neg / pos
+
+    def __getattribute__(self, name):
+        if name == 'pos_weight' and pos_weight is None:
+            raise NotImplementedError('pos_weight is not set, create an object' +
+                                        'of this class somewhere in the process' +  
+                                        'to initialize it')
+
+        return Dataset.__getattribute__(self, name)
+    
     def load_data(self, data_dir, max_line_points):
         data = []
         writer_id_to_int_map = {}
