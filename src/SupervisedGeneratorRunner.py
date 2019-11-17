@@ -35,7 +35,7 @@ class GeneratorLoss(BaseModule):
         xys  = generated.narrow(1, 0, 2)
         ps   = generated.narrow(1, 2, 1)
         
-        print(xys[0].data, gt.narrow(1, 0, 2)[0].data)
+        print(generated[0].data, gt[0].data)
 
         loss_vals_weights = {
             'mse': (self.xy_loss(xys, gt.narrow(1, 0, 2)), 1),
@@ -191,5 +191,7 @@ class SupervisedGeneratorRunner(BaseRunner):
             # Each generated value is a 2D array
             generated_delta_points.append((float(generated_xy[0][0]), float(generated_xy[0][1]), 1 if generated_p > 0.5 else 0))
 
-        delta_points_to_image_discrete(generated_delta_points, constants.INTERMITTENT_OUTPUTS_BASE_DIR, f'output_{global_step}.png')
+        #FIXME: produce this: https://raw.githubusercontent.com/wezteoh/handwriting_generation/master/examples/conditional_generation.png
+        delta_points_to_image_discrete(generated_delta_points, constants.INTERMITTENT_OUTPUTS_BASE_DIR, 
+            f'output_{global_step}.png', attn_weights=self.nets[0].attn.attn_weights, orig_text='find this yourself!')
         delta_points_to_image_discrete(gt_delta_points, constants.INTERMITTENT_OUTPUTS_BASE_DIR, f'ground_truth_{global_step}.png')

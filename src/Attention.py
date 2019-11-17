@@ -10,17 +10,18 @@ class Attention(BaseModule):
         self.attn = nn.Linear(constants.CHARACTER_EMBEDDING_SIZE * 
             constants.MAX_LINE_TEXT_LENGTH + constants.RNN_HIDDEN_SIZE, 
             constants.MAX_LINE_TEXT_LENGTH)
+        self.attn_weights = None
 
     def forward(self, letter_embedding_sequence, last_hidden):
         flattened_sequence = letter_embedding_sequence.view(
                                 letter_embedding_sequence.shape[0], -1)
         
         attn_input = torch.cat([flattened_sequence, last_hidden], dim=1)
-        attn_weights = F.softmax(self.attn(attn_input), dim=1).unsqueeze(1)
+        self.attn_weights = F.softmax(self.attn(attn_input), dim=1).unsqueeze(1)
         #attn_weights.shape -> batch_size x 1 x constants.MAX_LINE_POINTS
         #letter_embedding_sequence.shape -> batch_size x constants.MAX_LINE_POINTS x 
         #                                   constants.CHARACTER_EMBEDDING_SIZE
-        return torch.bmm(attn_weights, letter_embedding_sequence).squeeze(1)
+        return torch.bmm(self.attn_weights, letter_embedding_sequence).squeeze(1)
 
     def introspect(self):
         return
