@@ -92,73 +92,50 @@ def get_char_info_from_data(data_dir, max_line_points, minimum_char_frequency):
         idx_to_char_map[i] = char
     return chars_to_ignore, idx_to_char_map, char_to_idx_map
 
-def delta_points_to_image(delta_points, output_dir, file_name):
-    cur_point = (0, 0, 0)
-    i = 0
-    plot_x = []
-    plot_y = []
+PLOT_FLAG_MAP = {
+    'continuous': '-',
+    'discrete': 'o'
+}
 
-    while i < len(delta_points):
-        delta_x, delta_y, p = delta_points[i]
-        x, y, _ = cur_point
-        cur_point = (x + delta_x, y + delta_y, p)
-        plot_x.append(cur_point[0])
-        plot_y.append(1 - cur_point[1])
-        if p == 1:
-            # Plot current stroke and start new stroke
-            plt.plot(plot_x, plot_y, 'k')
-            plot_x = []
-            plot_y = []
-        i += 1
-    # Plot any remaining points (especially for generated points)
-    if len(plot_x) != 0:
-        plt.plot(plot_x, plot_y, 'k')
+def points_to_image(generated_points, ground_truth_points=None, delta_points=False, plot_type='continuous', generated_plot_title='Generated Output',
+        gt_plot_title='Ground Truth Output', save_to_file=False, file_path=None):
+    fig = plt.figure()
+
+    plot_rows = 1 if ground_truth_points == None else 2
+    plot_cols = 1
+    generated_ax = fig.add_subplot(plot_rows, plot_cols, 1)
+    #generated_fig = plt.subplot(plot_rows, plot_cols, 1)
+    generated_ax.set_title(generated_plot_title)
+    plot_points(plt, generated_points, delta_points, plot_flags=f'k{PLOT_FLAG_MAP[plot_type]}')
+
+    if ground_truth_points != None:
+        gt_ax = fig.add_subplot(plot_rows, plot_cols, 2)
+        #gt_fig = plt.subplot(plot_rows, plot_cols, 2)
+        gt_ax.set_title(gt_plot_title)
+        plot_points(plt, ground_truth_points, delta_points, plot_flags=f'k{PLOT_FLAG_MAP[plot_type]}')
+
+    if save_to_file:
+        assert file_path != None, 'File path required when saving image to file'
+        plt.savefig(file_path)
+        plt.clf()
     
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-    plt.xlim(-1, 1)
-    plt.ylim(-1, 1)
-    plt.savefig(f'{output_dir}/{file_name}')
-    plt.clf()
+    return fig
 
-def delta_points_to_image_discrete(delta_points, output_dir, file_name, attn_weights=None, orig_text=None):
+def plot_points(fig, points, delta_points, plot_flags):
     cur_point = (0, 0, 0)
-    i = 0
+    i = 1
     plot_x = []
     plot_y = []
-    #plt.xlim(-1, 1)
-    #plt.ylim(-1, 1)
-
-    while i < len(delta_points):
-        delta_x, delta_y, p = delta_points[i]
-        x, y, _ = cur_point
-        cur_point = (x + delta_x, y + delta_y, p)
+    while i < len(points):
+        x, y, p = points[i]
+        cur_point = (cur_point[0] + x, cur_point[1] + y, p) if delta_points else (x, y, p)
         plot_x.append(cur_point[0])
         plot_y.append(cur_point[1])
-        if p == 1:
+        if cur_point[2] == 1:
             # Plot current stroke and start new stroke
-            plt.plot(plot_x, plot_y, 'ko')
+            fig.plot(plot_x, plot_y, plot_flags)
             plot_x = []
             plot_y = []
         i += 1
-    # Plot any remaining points (especially for generated points)
     if len(plot_x) != 0:
-        plt.plot(plot_x, plot_y, 'ko')
-    
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-    plt.savefig(f'{output_dir}/{file_name}')
-    plt.clf()
-
-def points_to_image_discrete(delta_points, output_dir, file_name):
-    cur_point = (0, 0, 0)
-    i = 0
-    plot_x = [x for x, _, _ in delta_points]
-    plot_y = [y for _, y, _ in delta_points]
-    plt.xlim(-1, 1)
-    plt.ylim(-1, 1)
-    plt.plot(plot_x, plot_y, 'ko')
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-    plt.savefig(f'{output_dir}/{file_name}')
-    plt.clf()
+        fig.plot(plot_x, plot_y, plot_flags)

@@ -1,6 +1,6 @@
 from GeneratorCell import GeneratorCell
 from BaseRunner import BaseRunner
-from utils import delta_points_to_image, delta_points_to_image_discrete, points_to_image_discrete
+from utils import points_to_image
 import constants
 import torch.optim as optim
 import torch.nn as nn
@@ -195,6 +195,6 @@ class SupervisedGeneratorRunner(BaseRunner):
             generated_delta_points.append((float(generated_xy[0][0]), float(generated_xy[0][1]), 1 if generated_p > 0.5 else 0))
 
         #FIXME: produce this: https://raw.githubusercontent.com/wezteoh/handwriting_generation/master/examples/conditional_generation.png
-        delta_points_to_image_discrete(generated_delta_points, constants.INTERMITTENT_OUTPUTS_BASE_DIR, 
-            f'output_{global_step}.png', attn_weights=self.nets[0].attn.attn_weights, orig_text='find this yourself!')
-        delta_points_to_image_discrete(gt_delta_points, constants.INTERMITTENT_OUTPUTS_BASE_DIR, f'ground_truth_{global_step}.png')
+        points_plot = points_to_image(generated_delta_points, ground_truth_points=gt_delta_points, delta_points=True)
+                    #, attn_weights=self.nets[0].attn.attn_weights, orig_text='find this yourself!')
+        self.writer.add_figure(f'{self.name}/intermittent_output', points_plot, global_step=self.global_step)

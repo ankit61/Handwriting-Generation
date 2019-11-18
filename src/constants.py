@@ -17,11 +17,11 @@ RNN_TYPE                    = 'GRU'
 
 GEN_BATCH_SIZE              = 64
 
-MAX_LINE_POINTS             = 250
-MINIMUM_CHAR_FREQUENCY      = 50
+MAX_LINE_POINTS             = 100
+MINIMUM_CHAR_FREQUENCY      = 0
 MAX_LINE_TEXT_LENGTH        = 66
 PAD_CHARACTER               = '@'
-
+STANDARDIZE_POINTS          = False
 MAX_DATA_LOAD_THREADS       = multiprocessing.cpu_count()
 
 TENSORBOARDX_BASE_DIR = os.path.join(
