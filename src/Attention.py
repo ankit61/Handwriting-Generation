@@ -18,6 +18,7 @@ class Attention(BaseModule):
         
         attn_input = torch.cat([flattened_sequence, last_hidden], dim=1)
         self.attn_weights = F.softmax(self.attn(attn_input), dim=1).unsqueeze(1)
+        #print(self.attn_weights[0].data)
         #attn_weights.shape -> batch_size x 1 x constants.MAX_LINE_POINTS
         #letter_embedding_sequence.shape -> batch_size x constants.MAX_LINE_POINTS x 
         #                                   constants.CHARACTER_EMBEDDING_SIZE

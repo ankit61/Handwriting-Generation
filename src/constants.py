@@ -14,10 +14,11 @@ CHARACTER_EMBEDDING_SIZE    = 64
 RNN_HIDDEN_SIZE             = 64
 RNN_DEPTH                   = 4
 RNN_TYPE                    = 'GRU'
+RNN_OUT_SIZE                = 3
 
 GEN_BATCH_SIZE              = 64
 
-MAX_LINE_POINTS             = 100
+MAX_LINE_POINTS             = 34
 MINIMUM_CHAR_FREQUENCY      = 0
 MAX_LINE_TEXT_LENGTH        = 66
 PAD_CHARACTER               = '@'

@@ -80,18 +80,19 @@ class SupervisedGeneratorRunner(BaseRunner):
 
         #initialize last_hidden_and_cell_states
         for _ in range(constants.RNN_DEPTH):
-            last_hidden = torch.zeros(batch['datapoints'].shape[0], constants.RNN_HIDDEN_SIZE).uniform_(-1, 1)
-            last_cell   = torch.zeros(batch['datapoints'].shape[0], constants.RNN_HIDDEN_SIZE).uniform_(-1, 1)
+            last_hidden = torch.zeros(batch['datapoints'].shape[0], constants.RNN_HIDDEN_SIZE)
+            last_cell   = torch.zeros(batch['datapoints'].shape[0], constants.RNN_HIDDEN_SIZE)
 
             if torch.cuda.is_available():
                 last_hidden, last_cell = last_hidden.cuda(), last_cell.cuda()
 
             last_hidden_and_cell_states.append((last_hidden, last_cell))
 
+        last_out = torch.zeros((batch['datapoints'].shape[0], constants.RNN_OUT_SIZE))
         loss = 0.0
         self.optimizers[0].zero_grad()
 
-        for i, cur_batch_size in enumerate(packed_datapoints.batch_sizes):
+        for i, cur_batch_size in tqdm(enumerate(packed_datapoints.batch_sizes)):
             #do forward pass
             letter_id_sequences = batch['line_text_integers'][:cur_batch_size, :]
             writer_ids = batch['writer_id'][:cur_batch_size]
@@ -106,21 +107,19 @@ class SupervisedGeneratorRunner(BaseRunner):
                                                         last_hidden_and_cell_states[j][1][:cur_batch_size, :])
 
             if(np.random.rand() < self.force_teach_probability):
-                new_hidden = torch.zeros(last_hidden_and_cell_states[-1][0].shape)
+                new_out = torch.zeros(last_out.shape)
                 if torch.cuda.is_available():
-                    new_hidden = new_hidden.cuda()
-                new_hidden[:, 3:] = last_hidden_and_cell_states[-1][0][:, 3:]
-                new_hidden[:, :2] = gt.narrow(1, 0, 2)
-                new_hidden[:, 2]  = torch.squeeze(gt.narrow(1, 2, 1), axis=1)
-                last_hidden_and_cell_states = last_hidden_and_cell_states[:-1] + \
-                        [(new_hidden, last_hidden_and_cell_states[-1][1])]
+                    new_out = new_out.cuda()
+                new_out[:, :2] = gt.narrow(1, 0, 2)
+                new_out[:, 2]  = torch.squeeze(gt.narrow(1, 2, 1), axis=1)
+            else:
+                new_out = last_out
 
-            final_out, last_hidden_and_cell_states = self.nets[0](writer_ids, letter_id_sequences,
-                                                    last_hidden_and_cell_states)
+            last_out, last_hidden_and_cell_states = self.nets[0](writer_ids, letter_id_sequences,
+                                                    last_hidden_and_cell_states, new_out)
 
             #compute loss
-
-            loss += self.loss_fn(final_out, gt, self.global_step)
+            loss += self.loss_fn(last_out, gt, self.global_step)
             if is_train_mode:
                 #calculate gradients but don't update
                 #FIXME: check correctness of retain graph?
@@ -174,19 +173,30 @@ class SupervisedGeneratorRunner(BaseRunner):
                     last_hidden, last_cell = last_hidden.cuda(), last_cell.cuda()
 
             last_hidden_and_cell_states.append((last_hidden, last_cell))
-        
+
+        last_out = torch.zeros((1, constants.RNN_OUT_SIZE))
+
         for i in range(test_sentence['orig_datapoints_len']):
             #do forward pass
             letter_id_sequences = test_sentence['line_text_integers']
             writer_ids = test_sentence['writer_id']
+            gt = test_sentence['datapoints'][0][i]
 
-            final_out, last_hidden_and_cell_states = \
-                self.nets[0](writer_ids, letter_id_sequences, last_hidden_and_cell_states)
+            if(np.random.rand() < self.force_teach_probability):
+                new_out = torch.zeros(last_out.shape)
+                if torch.cuda.is_available():
+                    new_out = new_out.cuda()
+                new_out[0, :2] = gt[0:2]
+                new_out[0, 2]  = gt[2]
+            else:
+                new_out = last_out
+
+            last_out, last_hidden_and_cell_states = \
+                self.nets[0](writer_ids, letter_id_sequences, last_hidden_and_cell_states, new_out)
 
             #compute loss
-            gt = test_sentence['datapoints'][0][i]
             gt_delta_points.append((float(gt[0]), float(gt[1]), float(gt[2])))
-            generated = final_out
+            generated = last_out
 
             generated_xy  = generated.narrow(1, 0, 2)
             generated_p   = generated.narrow(1, 2, 1)[0][0]

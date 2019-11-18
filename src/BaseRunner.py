@@ -11,14 +11,14 @@ from numpy import sign
 import torch.optim.lr_scheduler as lr_scheduler
 
 LR_DECAY_STEP_SIZE  = 5
-LR_DECAY_FACTOR     = 0.95
+LR_DECAY_FACTOR     = 0.9
 
 class BaseRunner(metaclass=ABCMeta):
     #inspired by https://github.com/pytorch/examples/blob/master/imagenet/main.py
 
     def __init__(self, models, loss_fn, optimizers, best_metric_name,
         should_minimize_best_metric, debug = True, introspect = True):
-        
+
         assert type(models) == type([]), 'models must be a list'
         assert type(optimizers) == type([]), 'optimizers must be a list'
 

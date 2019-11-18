@@ -3,7 +3,6 @@ from torch.utils.data import DataLoader
 from HWGANDataset import HWGANDataset
 import torch
 import constants
-from utils import delta_points_to_image_discrete
 
 #torch.set_default_tensor_type(torch.cuda.FloatTensor 
 #        if torch.cuda.is_available() else torch.FloatTensor)
