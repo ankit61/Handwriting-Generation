@@ -1,8 +1,9 @@
 from SupervisedGeneratorRunner import SupervisedGeneratorRunner
 from torch.utils.data import DataLoader
 from HWGANDataset import HWGANDataset
-import torch
+import torch, matplotlib
 import constants
+matplotlib.use('Agg')
 
 #torch.set_default_tensor_type(torch.cuda.FloatTensor 
 #        if torch.cuda.is_available() else torch.FloatTensor)

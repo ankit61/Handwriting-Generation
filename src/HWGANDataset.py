@@ -41,7 +41,6 @@ class LineToOneHotMatrixTransform(object):
         
         new_sample = copy.deepcopy(sample)
         new_sample['line_matrix'] = line_onehot_matrix
-        new_sample.pop('line_text', None)
         return new_sample
 
 class LineTextToIntegerTransform(object):
@@ -59,7 +58,6 @@ class LineTextToIntegerTransform(object):
             line_text_integers[i] = self.char_to_idx_map[c]
         
         sample['line_text_integers'] = torch.tensor(line_text_integers, dtype=torch.long)
-        sample.pop('line_text', None)
         return sample
 
 class NormalizeDatapointsTransform(object):

@@ -1,7 +1,15 @@
 import torch, os, matplotlib
 import matplotlib.pyplot as plt
+import seaborn as sns
+import numpy as np
 from collections import defaultdict
 import constants
+
+PLOT_FLAG_MAP = {
+    'continuous': '-',
+    'discrete': 'o'
+}
+POINT_FLIP_THRESHOLD = 10000
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
@@ -92,10 +100,26 @@ def get_char_info_from_data(data_dir, max_line_points, minimum_char_frequency):
         idx_to_char_map[i] = char
     return chars_to_ignore, idx_to_char_map, char_to_idx_map
 
-PLOT_FLAG_MAP = {
-    'continuous': '-',
-    'discrete': 'o'
-}
+def attention_output(attn_weights, generated_points, original_text, delta_points=False, plot_type='continuous'):
+    fig = plt.figure()
+    plot_rows = 2
+    plot_cols = 1
+
+    heatmap_ax = fig.add_subplot(plot_rows, plot_cols, 1)
+    sns.heatmap(attn_weights, ax=heatmap_ax, cbar=False)
+    heatmap_ax.set_ylabel(original_text)
+
+    generated_ax = fig.add_subplot(plot_rows, plot_cols, 2)
+    plot_points(plt, generated_points, delta_points, plot_flags=f'k{PLOT_FLAG_MAP[plot_type]}')
+    # Turn off the frame and axes-ticks for the generated handwriting plot
+    generated_ax.spines['top'].set_visible(False)
+    generated_ax.spines['right'].set_visible(False)
+    generated_ax.spines['bottom'].set_visible(False)
+    generated_ax.spines['left'].set_visible(False)
+    generated_ax.get_xaxis().set_ticks([])
+    generated_ax.get_yaxis().set_ticks([])
+
+    return fig
 
 def points_to_image(generated_points, ground_truth_points=None, delta_points=False, plot_type='continuous', generated_plot_title='Generated Output',
         gt_plot_title='Ground Truth Output', save_to_file=False, file_path=None):
@@ -130,7 +154,7 @@ def plot_points(fig, points, delta_points, plot_flags):
         x, y, p = points[i]
         cur_point = (cur_point[0] + x, cur_point[1] + y, p) if delta_points else (x, y, p)
         plot_x.append(cur_point[0])
-        plot_y.append(cur_point[1])
+        plot_y.append(POINT_FLIP_THRESHOLD - cur_point[1]) # Vertically flip image to get understandable output
         if cur_point[2] == 1:
             # Plot current stroke and start new stroke
             fig.plot(plot_x, plot_y, plot_flags)

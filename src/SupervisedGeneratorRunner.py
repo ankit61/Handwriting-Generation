@@ -1,6 +1,6 @@
 from GeneratorCell import GeneratorCell
 from BaseRunner import BaseRunner
-from utils import points_to_image
+from utils import points_to_image, attention_output
 import constants
 import torch.optim as optim
 import torch.nn as nn
@@ -35,7 +35,7 @@ class GeneratorLoss(BaseModule):
         xys  = generated.narrow(1, 0, 2)
         ps   = generated.narrow(1, 2, 1)
         
-        print(generated[0].data, gt[0].data)
+        #print(generated[0].data, gt[0].data)
 
         loss_vals_weights = {
             'mse': (self.xy_loss(xys, gt.narrow(1, 0, 2)), 1),
@@ -155,6 +155,8 @@ class SupervisedGeneratorRunner(BaseRunner):
         test_sentence['datapoints'] = batch['datapoints'][:1, :]
         test_sentence['line_text_integers'] = batch['line_text_integers'][:1, :]
         test_sentence['orig_datapoints_len'] = batch['orig_datapoints_len'][0]
+        test_sentence['orig_line_text_len'] = batch['orig_line_text_len'][0]
+        test_sentence['line_text'] = batch['line_text'][0]
         # Need to resize writer_id to 1D tensor for GeneratorCell invariant shape consistency
         test_sentence['writer_id'] = batch['writer_id'][0].reshape(1,)
 
@@ -176,6 +178,7 @@ class SupervisedGeneratorRunner(BaseRunner):
 
         last_out = torch.zeros((1, constants.RNN_OUT_SIZE))
 
+        attn_weights = torch.zeros(constants.MAX_LINE_TEXT_LENGTH, test_sentence['orig_datapoints_len'])
         for i in range(test_sentence['orig_datapoints_len']):
             #do forward pass
             letter_id_sequences = test_sentence['line_text_integers']
@@ -194,6 +197,8 @@ class SupervisedGeneratorRunner(BaseRunner):
             last_out, last_hidden_and_cell_states = \
                 self.nets[0](writer_ids, letter_id_sequences, last_hidden_and_cell_states, new_out)
 
+            attn_weights[:, i] = self.nets[0].attn.attn_weights[0, 0, :]
+
             #compute loss
             gt_delta_points.append((float(gt[0]), float(gt[1]), float(gt[2])))
             generated = last_out
@@ -208,3 +213,7 @@ class SupervisedGeneratorRunner(BaseRunner):
         points_plot = points_to_image(generated_delta_points, ground_truth_points=gt_delta_points, delta_points=True)
                     #, attn_weights=self.nets[0].attn.attn_weights, orig_text='find this yourself!')
         self.writer.add_figure(f'{self.name}/intermittent_output', points_plot, global_step=self.global_step)
+
+        attn_heatmap = attention_output(attn_weights.data, generated_delta_points, test_sentence['line_text'][:test_sentence['orig_line_text_len']]
+            , delta_points=True)
+        self.writer.add_figure(f'{self.name}/attention_heatmap', attn_heatmap, global_step=self.global_step)
