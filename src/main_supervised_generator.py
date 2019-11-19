@@ -3,6 +3,8 @@ from torch.utils.data import DataLoader
 from HWGANDataset import HWGANDataset
 import torch
 import constants
+import matplotlib
+matplotlib.use('Agg')
 
 #torch.set_default_tensor_type(torch.cuda.FloatTensor 
 #        if torch.cuda.is_available() else torch.FloatTensor)
