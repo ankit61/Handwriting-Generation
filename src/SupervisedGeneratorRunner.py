@@ -106,6 +106,8 @@ class SupervisedGeneratorRunner(BaseRunner):
                     last_hidden_and_cell_states[j] = (last_hidden_and_cell_states[j][0][:cur_batch_size, :],
                                                         last_hidden_and_cell_states[j][1][:cur_batch_size, :])
 
+            last_out = last_out[:cur_batch_size]
+
             if(np.random.rand() < self.force_teach_probability):
                 new_out = torch.zeros(last_out.shape)
                 if torch.cuda.is_available():
