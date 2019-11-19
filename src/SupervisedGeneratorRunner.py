@@ -15,7 +15,7 @@ from HWGANDataset import HWGANDataset
 LR = 0.05
 MOMENTUM = 0.9
 WEIGHT_DECAY = 4e-4
-GRADIENT_CLIP_NORM = 200
+GRADIENT_CLIP_NORM = 10
 UPDATE_BATCHES_PERIOD = 20
 
 class GeneratorLoss(BaseModule):
@@ -35,7 +35,7 @@ class GeneratorLoss(BaseModule):
         xys  = generated.narrow(1, 0, 2)
         ps   = generated.narrow(1, 2, 1)
         
-        print(generated[0].data, gt[0].data)
+        #print(generated[0].data, gt[0].data)
 
         loss_vals_weights = {
             'mse': (self.xy_loss(xys, gt.narrow(1, 0, 2)), 1),
@@ -122,22 +122,16 @@ class SupervisedGeneratorRunner(BaseRunner):
 
             #compute loss
             loss += self.loss_fn(last_out, gt, self.global_step)
-            if is_train_mode:
-                #calculate gradients but don't update
-                #FIXME: check correctness of retain graph?
-                loss.backward(retain_graph=(i < len(packed_datapoints.batch_sizes) - 1))
-                torch.nn.utils.clip_grad_norm_(self.nets[0].parameters(), GRADIENT_CLIP_NORM)
-                self.global_step += 1
-                if (i + 1) % UPDATE_BATCHES_PERIOD == 0:
-                    self.optimizers[0].step()
-                    self.output_gradient_norms(self.global_step)
-                    self.output_gradient_distributions(self.global_step)
-                    self.optimizers[0].zero_grad()
 
             batch_start += cur_batch_size
 
         if(is_train_mode):
             #update weights
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(self.nets[0].parameters(), GRADIENT_CLIP_NORM)
+            self.global_step += 1
+            self.output_gradient_norms(self.global_step)
+            self.output_gradient_distributions(self.global_step)
             self.optimizers[0].step()
 
         return [('loss', loss.div_(len(packed_datapoints.batch_sizes)).item())]
