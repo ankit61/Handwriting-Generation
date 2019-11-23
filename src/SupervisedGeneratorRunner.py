@@ -132,7 +132,7 @@ class SupervisedGeneratorRunner(BaseRunner):
                     new_out[high_bce_index, 2]  = gt[high_bce_index, 2]
 
             last_out, last_hidden_and_cell_states, last_kappa = self.nets[0](writer_ids, letter_id_sequences, orig_text_lens,
-                                                    last_hidden_and_cell_states, new_out, last_kappa)
+                                                    last_hidden_and_cell_states, new_out, last_kappa[:cur_batch_size, :])
             
 
             gt = packed_datapoints.data[batch_start:batch_start + cur_batch_size, :]
@@ -193,7 +193,7 @@ class SupervisedGeneratorRunner(BaseRunner):
 
             last_out = torch.zeros((1, constants.RNN_OUT_SIZE))
 
-            attn_weights = torch.zeros(test_sentence['orig_line_text_len'], test_sentence['orig_datapoints_len'])
+            attn_weights = torch.zeros(constants.MAX_LINE_TEXT_LENGTH, test_sentence['orig_datapoints_len'])
             last_kappa = torch.zeros((1, constants.ATTENTION_NUM_GAUSSIAN_FUNC))
 
             for i in range(test_sentence['orig_datapoints_len']):
