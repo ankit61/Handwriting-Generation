@@ -26,7 +26,7 @@ class GeneratorCell(BaseModule):
         self.rnn_cells = nn.ModuleList([rnn_cell_type(rnn_input_size, constants.RNN_HIDDEN_SIZE)])
         for _ in range(constants.RNN_DEPTH - 1):
             self.rnn_cells.append(rnn_cell_type(rnn_input_size + constants.RNN_HIDDEN_SIZE, 
-                                    constants.RNN_HIDDEN_SIZE))
+                                constants.RNN_HIDDEN_SIZE))
 
         self.attn = WindowAttention(hidden_size=constants.RNN_DEPTH * constants.RNN_HIDDEN_SIZE ,debug=self.debug)
         self.fc   = nn.Linear(constants.RNN_HIDDEN_SIZE * constants.RNN_DEPTH + constants.RNN_OUT_SIZE, constants.RNN_OUT_SIZE)
@@ -62,8 +62,9 @@ class GeneratorCell(BaseModule):
         attn_hidden_states = [last_hidden_and_cell_states[i][0] for i in range(len(last_hidden_and_cell_states))]
         attn_hidden_states = torch.cat([attn_hidden_states[i] for i in range(len(attn_hidden_states))], dim=1)
         attn_embedding, cur_kappa  = self.attn(self.char_embedding(letter_id_sequence), attn_hidden_states, last_kappa, orig_text_lens)
-        #attn_embedding  = self.attn(self.char_embedding(letter_id_sequence), orig_text_lens,
-        #    [last_hidden_and_cell_states[i][0] for i in range(len(last_hidden_and_cell_states))], last_out)
+        
+        # Only use the first 'batch size' attentions as sequences in a batch are different length
+        attn_embedding = attn_embedding[:last_out.shape[0]]
 
         hidden_and_cell_states = []
         rnn_input      = torch.cat([attn_embedding, invariants, last_out], dim=1)

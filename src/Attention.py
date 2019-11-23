@@ -66,29 +66,20 @@ class WindowAttention(BaseModule):
             f'Number of gaussian functions for attention ({self.num_gaussian_func}) must match shape of last_kappa ({last_kappa.shape[-1]})'
 
         attn_params = self.attn(last_hidden_states).exp()
-        # Dummy attention output & kappas init-ed to zero
-        attn_out = torch.zeros((text_len.shape[0], letter_embedding_sequence.shape[-1]))
-        kappa_out = torch.zeros((text_len.shape[0], self.num_gaussian_func))
 
-        for batch_i in range(text_len.shape[0]):
-            cur_text_len = text_len[batch_i]
-            # Letter weights used for attention heatmap
-            letter_weights = torch.zeros(cur_text_len)
+        # Zero out embeddings for padding characters
+        for i in range(text_len.shape[0]):
+            letter_embedding_sequence[:, text_len[i]:] = 0
 
-            # Take the embeddings for the original text length only
-            cur_letter_embedding_sequence = letter_embedding_sequence[batch_i, :cur_text_len, :]
-            alpha, beta, cur_kappa = attn_params[batch_i, :].chunk(3, dim=-1)
-            kappa = last_kappa[batch_i, :] + cur_kappa
+        
+        alpha, beta, cur_kappa = attn_params.chunk(3, dim=-1)
+        kappa = last_kappa + cur_kappa
 
-            cur_attn_out = torch.zeros((1, cur_letter_embedding_sequence.shape[-1]))
-            for char_i in range(cur_text_len):
-                exponent = -1 * beta * (kappa - char_i)**2
-                letter_weight = (alpha * torch.exp(exponent)).sum()
-                letter_weights[char_i] = letter_weight
-                cur_attn_out += letter_weight * cur_letter_embedding_sequence[char_i, :]
+        character_indices = torch.Tensor(list(range(self.max_text_len)))
+        
+        exponent = - beta.unsqueeze(2) * (kappa.unsqueeze(2).repeat(1, 1, self.max_text_len) - character_indices)**2
+        letter_weights = (alpha.unsqueeze(2) * torch.exp(exponent)).sum(dim=1)
+        attn_out = (letter_weights.unsqueeze(2) * letter_embedding_sequence).sum(dim=1)
 
-            attn_out[batch_i, :] = cur_attn_out
-            kappa_out[batch_i, :] = kappa
-            self.last_letter_weights = letter_weights
-
-        return attn_out, kappa_out
+        self.last_letter_weights = letter_weights
+        return attn_out, kappa
