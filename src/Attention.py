@@ -27,3 +27,18 @@ class Attention(BaseModule):
 
     def introspect(self):
         return
+
+class WindowAttention(BaseModule):
+    def __init__(self, hidden_size=constants.RNN_HIDDEN_SIZE, num_gaussian_func=constants.ATTENTION_NUM_GAUSSIAN_FUNC, 
+            max_text_len=constants.MAX_LINE_TEXT_LENGTH, debug=True):
+        super(WindowAttention, self).__init__(debug)
+
+        self.attn = nn.Linear(hidden_size, 3*num_gaussian_func) # 3 for predicting alpha, beta & kappa
+        self.max_text_len = max_text_len
+
+    def forward(self, letter_embedding_sequence, last_hidden_states, prev_kappa):
+        attn_params = self.attn(last_hidden_states)
+        alpha, beta, cur_kappa = attn_params.chunk(3, dim=-1)
+
+        print(letter_embedding_sequence.shape)
+        exit(-1)

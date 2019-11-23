@@ -2,7 +2,7 @@ from BaseModule import BaseModule
 import torch
 import torch.nn as nn
 import constants
-from Attention import Attention
+from Attention import Attention, WindowAttention
 from scipy.stats import ortho_group
 import copy
 
@@ -26,7 +26,7 @@ class GeneratorCell(BaseModule):
             self.rnn_cells.append(rnn_cell_type(rnn_input_size + constants.RNN_HIDDEN_SIZE, 
                                     constants.RNN_HIDDEN_SIZE))
 
-        self.attn = Attention(self.debug)
+        self.attn = WindowAttention(hidden_size=constants.RNN_DEPTH * constants.RNN_HIDDEN_SIZE ,debug=self.debug)
         self.fc   = nn.Linear(constants.RNN_HIDDEN_SIZE * constants.RNN_DEPTH + constants.RNN_OUT_SIZE, constants.RNN_OUT_SIZE)
         self.init_embeddings()
 
@@ -54,8 +54,11 @@ class GeneratorCell(BaseModule):
             last_out = last_out.cuda()
 
         invariants      = self.invariant(writer_id)
-        attn_embedding  = self.attn(self.char_embedding(letter_id_sequence), 
-            [last_hidden_and_cell_states[i][0] for i in range(len(last_hidden_and_cell_states))])
+
+        # Concatenate hidden states into 1D vector
+        attn_hidden_states = [last_hidden_and_cell_states[i][0] for i in range(len(last_hidden_and_cell_states))]
+        attn_hidden_states = torch.cat([attn_hidden_states[i] for i in range(len(attn_hidden_states))], dim=1)
+        attn_embedding  = self.attn(self.char_embedding(letter_id_sequence), attn_hidden_states, torch.zeros((1,constants.ATTENTION_NUM_GAUSSIAN_FUNC)))
 
         hidden_and_cell_states = []
         rnn_input      = torch.cat([attn_embedding, invariants, last_out], dim=1)
