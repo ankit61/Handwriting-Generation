@@ -9,6 +9,7 @@ import constants
 import os
 from numpy import sign
 import torch.optim.lr_scheduler as lr_scheduler
+import warnings
 
 LR_DECAY_STEP_SIZE  = 10
 LR_DECAY_FACTOR     = 0.9
@@ -17,7 +18,7 @@ class BaseRunner(metaclass=ABCMeta):
     #inspired by https://github.com/pytorch/examples/blob/master/imagenet/main.py
 
     def __init__(self, models, loss_fn, optimizers, best_metric_name,
-        should_minimize_best_metric, debug = True, introspect = True):
+        should_minimize_best_metric, debug = True, introspect = True, load_paths=None):
 
         assert type(models) == type([]), 'models must be a list'
         assert type(optimizers) == type([]), 'optimizers must be a list'
@@ -37,6 +38,10 @@ class BaseRunner(metaclass=ABCMeta):
         self.lr_schedulers = \
             [lr_scheduler.StepLR(optimizers[i], LR_DECAY_STEP_SIZE, LR_DECAY_FACTOR) 
                 for i in range(len(self.optimizers))]
+        
+        if load_paths is not None:
+            for i, path in enumerate(load_paths):
+                self.load_model(models[i], load_paths[i])
 
         if(torch.cuda.is_available()):
             for i in range(len(self.nets)):
@@ -44,6 +49,16 @@ class BaseRunner(metaclass=ABCMeta):
 
             loss_fn = loss_fn.cuda()
   
+    def load_model(self, model, path):
+        d = torch.load(path)
+        print('Loading ' + d['arch'] + 'where ' + \
+            d['best_metric_name'] + ' was ' + \
+            str(d['best_metric_val']) + '...')
+        try:
+            model.load_state_dict(d['state_dict'])
+        except:
+            warnings.warn('Could not load ' + d['arch'] + '! This happens when the architecture of the saved model is different than the current model')
+
     def output_weight_distribution(self, name_prefix="training_weights"):
         if not self.introspect:
             return
@@ -146,7 +161,7 @@ class BaseRunner(metaclass=ABCMeta):
 
         for i in range(len(self.nets)):
             self.nets[i].train()
-        
+
         if(validate_on_train):
             val_loader = train_loader
 
