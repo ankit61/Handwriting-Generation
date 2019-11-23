@@ -12,4 +12,4 @@ gen_runner  = SupervisedGeneratorRunner()
 data_loader = DataLoader(dataset, batch_size=constants.GEN_BATCH_SIZE)
 
 print('Starting to train...')
-gen_runner.train(data_loader, 100)
+gen_runner.train(data_loader, constants.EPOCHS)

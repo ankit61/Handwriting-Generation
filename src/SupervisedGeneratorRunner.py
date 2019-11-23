@@ -12,8 +12,10 @@ from BaseModule import BaseModule
 import numpy as np
 from HWGANDataset import HWGANDataset
 
+torch.autograd.set_detect_anomaly(True)
+
 LR = 0.05
-MOMENTUM = 0.9
+MOMENTUM = 0.85
 WEIGHT_DECAY = 4e-4
 GRADIENT_CLIP_NORM = 10
 UPDATE_BATCHES_PERIOD = 20
@@ -52,7 +54,7 @@ class GeneratorLoss(BaseModule):
                 self.writer.add_scalar(self.__class__.__name__ + f'/loss_proportion/{loss_name}', loss_proportion, global_step=global_step)
                 self.writer.add_scalar(self.__class__.__name__ + f'/loss_raw/{loss_name}', loss_val_weight[0], global_step=global_step)
 
-        return final_loss_val
+        return final_loss_val, loss_vals_weights
 
 class SupervisedGeneratorRunner(BaseRunner):
     def __init__(self, debug = True):
@@ -96,7 +98,6 @@ class SupervisedGeneratorRunner(BaseRunner):
             #do forward pass
             letter_id_sequences = batch['line_text_integers'][:cur_batch_size, :]
             writer_ids = batch['writer_id'][:cur_batch_size]
-            gt = packed_datapoints.data[batch_start:batch_start + cur_batch_size, :]
 
             for j in range(constants.RNN_DEPTH):
                 if last_hidden_and_cell_states[j][1] is None:
@@ -108,20 +109,34 @@ class SupervisedGeneratorRunner(BaseRunner):
 
             last_out = last_out[:cur_batch_size]
 
-            if(np.random.rand() < self.force_teach_probability):
-                new_out = torch.zeros(last_out.shape)
-                if torch.cuda.is_available():
-                    new_out = new_out.cuda()
-                new_out[:, :2] = gt.narrow(1, 0, 2)
-                new_out[:, 2]  = torch.squeeze(gt.narrow(1, 2, 1), axis=1)
-            else:
-                new_out = last_out
+            new_out = last_out.clone().detach()
+            new_out = new_out[:cur_batch_size]
+            new_out[:, 2].sigmoid_()
+            if torch.cuda.is_available():
+                new_out = new_out.cuda()
+
+            if(i > 0):
+                gt = gt[:cur_batch_size]
+                high_mse_index = (new_out[:, :2] - gt[:, :2]) \
+                                    .norm(dim=1) >= constants.XY_PRED_TOLERANCE
+                #print(high_mse_index.type(torch.int).sum())
+                high_bce_index = ((new_out[:, 2] > constants.SIGMOID_THRESH_P) \
+                                    .type(new_out.dtype) - gt[:, 2]).abs() > 0
+                #print(high_bce_index.type(torch.int).sum())
+                
+                #set gt
+                new_out[high_mse_index, :2] = gt[high_mse_index, :2]
+                new_out[high_bce_index, 2]  = gt[high_bce_index, 2]
 
             last_out, last_hidden_and_cell_states = self.nets[0](writer_ids, letter_id_sequences,
                                                     last_hidden_and_cell_states, new_out)
+            
 
+            gt = packed_datapoints.data[batch_start:batch_start + cur_batch_size, :]
+            
             #compute loss
-            loss += self.loss_fn(last_out, gt, self.global_step)
+            cur_loss, _ = self.loss_fn(last_out, gt, self.global_step)
+            loss += cur_loss
 
             batch_start += cur_batch_size
 
@@ -157,59 +172,62 @@ class SupervisedGeneratorRunner(BaseRunner):
         test_sentence['writer_id'] = batch['writer_id'][0].reshape(1,)
 
         last_hidden_and_cell_states = []
-        for _ in range(constants.RNN_DEPTH):
-            last_hidden = torch.zeros(test_sentence['datapoints'].shape[0], constants.RNN_HIDDEN_SIZE)
-            if self.nets[0].rnn_type == 'LSTM':
-                last_cell = torch.zeros(test_sentence['datapoints'].shape[0], constants.RNN_HIDDEN_SIZE)
-            else:
-                last_cell = None
-
-            if torch.cuda.is_available():
-                if last_cell is None:
-                    last_hidden = last_hidden.cuda()
+        with torch.no_grad():
+            for _ in range(constants.RNN_DEPTH):
+                last_hidden = torch.zeros(test_sentence['datapoints'].shape[0], constants.RNN_HIDDEN_SIZE)
+                if self.nets[0].rnn_type == 'LSTM':
+                    last_cell = torch.zeros(test_sentence['datapoints'].shape[0], constants.RNN_HIDDEN_SIZE)
                 else:
-                    last_hidden, last_cell = last_hidden.cuda(), last_cell.cuda()
+                    last_cell = None
 
-            last_hidden_and_cell_states.append((last_hidden, last_cell))
-
-        last_out = torch.zeros((1, constants.RNN_OUT_SIZE))
-
-        attn_weights = torch.zeros(constants.MAX_LINE_TEXT_LENGTH, test_sentence['orig_datapoints_len'])
-        for i in range(test_sentence['orig_datapoints_len']):
-            #do forward pass
-            letter_id_sequences = test_sentence['line_text_integers']
-            writer_ids = test_sentence['writer_id']
-            gt = test_sentence['datapoints'][0][i]
-
-            if(np.random.rand() < self.force_teach_probability):
-                new_out = torch.zeros(last_out.shape)
                 if torch.cuda.is_available():
-                    new_out = new_out.cuda()
-                new_out[0, :2] = gt[0:2]
-                new_out[0, 2]  = gt[2]
-            else:
+                    if last_cell is None:
+                        last_hidden = last_hidden.cuda()
+                    else:
+                        last_hidden, last_cell = last_hidden.cuda(), last_cell.cuda()
+
+                last_hidden_and_cell_states.append((last_hidden, last_cell))
+
+            last_out = torch.zeros((1, constants.RNN_OUT_SIZE))
+
+            attn_weights = torch.zeros(constants.MAX_LINE_TEXT_LENGTH, test_sentence['orig_datapoints_len'])
+            for i in range(test_sentence['orig_datapoints_len']):
+                #do forward pass
+                letter_id_sequences = test_sentence['line_text_integers']
+                writer_ids = test_sentence['writer_id']
+                gt = test_sentence['datapoints'][0][i]
+
+                # if(np.random.rand() < self.force_teach_probability):
+                #     new_out = torch.zeros(last_out.shape)
+                #     if torch.cuda.is_available():
+                #         new_out = new_out.cuda()
+                #     new_out[0, :2] = gt[0:2]
+                #     new_out[0, 2]  = gt[2]
+                # else:
                 new_out = last_out
+                new_out[:, 2].sigmoid_()
 
-            last_out, last_hidden_and_cell_states = \
-                self.nets[0](writer_ids, letter_id_sequences, last_hidden_and_cell_states, new_out)
+                last_out, last_hidden_and_cell_states = \
+                    self.nets[0](writer_ids, letter_id_sequences, last_hidden_and_cell_states, new_out)
+                print(last_out[0, :2], gt[:2])                
 
-            attn_weights[:, i] = self.nets[0].attn.attn_weights[0, 0, :]
+                attn_weights[:, i] = self.nets[0].attn.attn_weights[0, 0, :]
 
-            #compute loss
-            gt_delta_points.append((float(gt[0]), float(gt[1]), float(gt[2])))
-            generated = last_out
+                #compute loss
+                gt_delta_points.append((float(gt[0]), float(gt[1]), float(gt[2])))
+                generated = last_out
 
-            generated_xy  = generated.narrow(1, 0, 2)
-            generated_p   = generated.narrow(1, 2, 1)[0][0]
-            generated_p = torch.sigmoid(generated_p)
-            # Each generated value is a 2D array
-            generated_delta_points.append((float(generated_xy[0][0]), float(generated_xy[0][1]), 1 if generated_p > 0.5 else 0))
+                generated_xy  = generated.narrow(1, 0, 2)
+                generated_p   = generated.narrow(1, 2, 1)[0][0]
+                generated_p = torch.sigmoid(generated_p)
+                # Each generated value is a 2D array
+                generated_delta_points.append((float(generated_xy[0][0]), float(generated_xy[0][1]), 1 if generated_p > constants.SIGMOID_THRESH_P else 0))
 
-        #FIXME: produce this: https://raw.githubusercontent.com/wezteoh/handwriting_generation/master/examples/conditional_generation.png
-        points_plot = points_to_image(generated_delta_points, ground_truth_points=gt_delta_points, delta_points=True)
-                    #, attn_weights=self.nets[0].attn.attn_weights, orig_text='find this yourself!')
-        self.writer.add_figure(f'{self.name}/intermittent_output', points_plot, global_step=self.global_step)
+            #FIXME: produce this: https://raw.githubusercontent.com/wezteoh/handwriting_generation/master/examples/conditional_generation.png
+            points_plot = points_to_image(generated_delta_points, ground_truth_points=gt_delta_points, delta_points=True)
+                        #, attn_weights=self.nets[0].attn.attn_weights, orig_text='find this yourself!')
+            self.writer.add_figure(f'{self.name}/intermittent_output', points_plot, global_step=self.global_step)
 
-        attn_heatmap = attention_output(attn_weights.data, generated_delta_points, test_sentence['line_text'][:test_sentence['orig_line_text_len']]
-            , delta_points=True)
-        self.writer.add_figure(f'{self.name}/attention_heatmap', attn_heatmap, global_step=self.global_step)
+            attn_heatmap = attention_output(attn_weights.data, generated_delta_points, test_sentence['line_text'][:test_sentence['orig_line_text_len']]
+                , delta_points=True)
+            self.writer.add_figure(f'{self.name}/attention_heatmap', attn_heatmap, global_step=self.global_step)

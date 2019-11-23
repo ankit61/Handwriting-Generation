@@ -10,7 +10,7 @@ import os
 from numpy import sign
 import torch.optim.lr_scheduler as lr_scheduler
 
-LR_DECAY_STEP_SIZE  = 5
+LR_DECAY_STEP_SIZE  = 10
 LR_DECAY_FACTOR     = 0.9
 
 class BaseRunner(metaclass=ABCMeta):
@@ -50,8 +50,9 @@ class BaseRunner(metaclass=ABCMeta):
 
         for net in self.nets:
             for param_name, param_val in net.named_parameters():
-                param_distribution_tag = f'{net.__class__.__name__}/{name_prefix}/{param_name}'
-                self.writer.add_histogram(param_distribution_tag, param_val)
+                if param_val.grad is not None:
+                    param_distribution_tag = f'{net.__class__.__name__}/{name_prefix}/{param_name}'
+                    self.writer.add_histogram(param_distribution_tag, param_val)
     
     def output_gradient_distributions(self, global_step, name_prefix="training_gradients"):
         if not self.introspect:
@@ -59,8 +60,9 @@ class BaseRunner(metaclass=ABCMeta):
 
         for net in self.nets:
             for param_name, param in net.named_parameters():
-                param_distribution_tag = f'{net.__class__.__name__}/{name_prefix}/{param_name}'
-                self.writer.add_histogram(param_distribution_tag, param.grad, global_step=global_step)
+                if param.grad is not None:
+                    param_distribution_tag = f'{net.__class__.__name__}/{name_prefix}/{param_name}'
+                    self.writer.add_histogram(param_distribution_tag, param.grad, global_step=global_step)
     
     def output_gradient_norms(self, global_step, name_prefix="training_gradient_norms"):
         if not self.introspect:
@@ -68,8 +70,9 @@ class BaseRunner(metaclass=ABCMeta):
 
         for net in self.nets:
             for param_name, param in net.named_parameters():
-                param_distribution_tag = f'{net.__class__.__name__}/{name_prefix}/{param_name}'
-                self.writer.add_scalar(param_distribution_tag, torch.norm(param.grad), global_step=global_step)
+                if param.grad is not None:
+                    param_distribution_tag = f'{net.__class__.__name__}/{name_prefix}/{param_name}'
+                    self.writer.add_scalar(param_distribution_tag, torch.norm(param.grad), global_step=global_step)
     
     def output_weight_norms(self, global_step, name_prefix="training_weight_norms"):
         if not self.introspect:
