@@ -12,9 +12,12 @@ import sys
 #get latest model
 saved_models = os.listdir(constants.MODELS_BASE_DIR)
 saved_models = [model for model in saved_models if model.split('_')[0] == 'GeneratorCell']
-saved_models.sort(key= lambda m : int(m.split('_')[2].split('.')[0]), reverse=True)
-saved_models = saved_models[:1]
-saved_models[0] = os.path.join(constants.MODELS_BASE_DIR, saved_models[0])
+if len(saved_models) > 0:
+    saved_models.sort(key= lambda m : int(m.split('_')[2].split('.')[0]), reverse=True)
+    saved_models = saved_models[:1]
+    saved_models[0] = os.path.join(constants.MODELS_BASE_DIR, saved_models[0])
+else:
+    saved_models = None
 
 dataset = HWGANDataset()
 gen_runner  = SupervisedGeneratorRunner(load_paths=saved_models)
