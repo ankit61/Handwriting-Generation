@@ -2,6 +2,7 @@ from BaseModule import BaseModule
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import numpy as np
 import constants
 
 class Attention(BaseModule):
@@ -43,3 +44,51 @@ class Attention(BaseModule):
 
     def introspect(self):
         return
+
+class WindowAttention(BaseModule):
+    def __init__(self, hidden_size=constants.RNN_HIDDEN_SIZE, num_gaussian_func=constants.ATTENTION_NUM_GAUSSIAN_FUNC, 
+            max_text_len=constants.MAX_LINE_TEXT_LENGTH, debug=True):
+        super(WindowAttention, self).__init__(debug)
+
+        self.attn = nn.Linear(hidden_size, 3*num_gaussian_func) # 3 for predicting alpha, beta & kappa
+        self.max_text_len = max_text_len
+        self.hidden_size = hidden_size
+        self.num_gaussian_func = num_gaussian_func
+        self.last_letter_weights = None
+
+    def get_attn_weights(self):
+        return self.last_letter_weights
+
+    def forward(self, letter_embedding_sequence, last_hidden_states, last_kappa, text_len):
+        assert last_hidden_states.shape[-1] == self.hidden_size, \
+            f'Hidden size for attention ({self.hidden_size}) must match size of last_hidden_states ({last_hidden_states.shape[-1]})'
+        assert last_kappa.shape[-1] == self.num_gaussian_func, \
+            f'Number of gaussian functions for attention ({self.num_gaussian_func}) must match shape of last_kappa ({last_kappa.shape[-1]})'
+
+        attn_params = self.attn(last_hidden_states).exp()
+        # Dummy attention output & kappas init-ed to zero
+        attn_out = torch.zeros((text_len.shape[0], letter_embedding_sequence.shape[-1]))
+        kappa_out = torch.zeros((text_len.shape[0], self.num_gaussian_func))
+
+        for batch_i in range(text_len.shape[0]):
+            cur_text_len = text_len[batch_i]
+            # Letter weights used for attention heatmap
+            letter_weights = torch.zeros(cur_text_len)
+
+            # Take the embeddings for the original text length only
+            cur_letter_embedding_sequence = letter_embedding_sequence[batch_i, :cur_text_len, :]
+            alpha, beta, cur_kappa = attn_params[batch_i, :].chunk(3, dim=-1)
+            kappa = last_kappa[batch_i, :] + cur_kappa
+
+            cur_attn_out = torch.zeros((1, cur_letter_embedding_sequence.shape[-1]))
+            for char_i in range(cur_text_len):
+                exponent = -1 * beta * (kappa - char_i)**2
+                letter_weight = (alpha * torch.exp(exponent)).sum()
+                letter_weights[char_i] = letter_weight
+                cur_attn_out += letter_weight * cur_letter_embedding_sequence[char_i, :]
+
+            attn_out[batch_i, :] = cur_attn_out
+            kappa_out[batch_i, :] = kappa
+            self.last_letter_weights = letter_weights
+
+        return attn_out, kappa_out

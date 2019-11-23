@@ -94,6 +94,9 @@ class SupervisedGeneratorRunner(BaseRunner):
         loss = 0.0
         self.optimizers[0].zero_grad()
 
+        batch_size = batch['datapoints'].shape[0]
+        last_kappa = torch.zeros((batch_size, constants.ATTENTION_NUM_GAUSSIAN_FUNC))
+
         for i, cur_batch_size in tqdm(enumerate(packed_datapoints.batch_sizes)):
             #do forward pass
             letter_id_sequences = batch['line_text_integers'][:cur_batch_size, :]
@@ -128,8 +131,8 @@ class SupervisedGeneratorRunner(BaseRunner):
                     new_out[high_mse_index, :2] = gt[high_mse_index, :2]
                     new_out[high_bce_index, 2]  = gt[high_bce_index, 2]
 
-            last_out, last_hidden_and_cell_states = self.nets[0](writer_ids, letter_id_sequences, orig_text_lens,
-                                                    last_hidden_and_cell_states, new_out)
+            last_out, last_hidden_and_cell_states, last_kappa = self.nets[0](writer_ids, letter_id_sequences, orig_text_lens,
+                                                    last_hidden_and_cell_states, new_out, last_kappa)
             
 
             gt = packed_datapoints.data[batch_start:batch_start + cur_batch_size, :]
@@ -190,7 +193,9 @@ class SupervisedGeneratorRunner(BaseRunner):
 
             last_out = torch.zeros((1, constants.RNN_OUT_SIZE))
 
-            attn_weights = torch.zeros(constants.MAX_LINE_TEXT_LENGTH, test_sentence['orig_datapoints_len'])
+            attn_weights = torch.zeros(test_sentence['orig_line_text_len'], test_sentence['orig_datapoints_len'])
+            last_kappa = torch.zeros((1, constants.ATTENTION_NUM_GAUSSIAN_FUNC))
+
             for i in range(test_sentence['orig_datapoints_len']):
                 #do forward pass
                 letter_id_sequences = test_sentence['line_text_integers']
@@ -207,10 +212,10 @@ class SupervisedGeneratorRunner(BaseRunner):
                 # else:
                 new_out = last_out
 
-                last_out, last_hidden_and_cell_states = \
-                    self.nets[0](writer_ids, letter_id_sequences, orig_text_lens, last_hidden_and_cell_states, new_out)
+                last_out, last_hidden_and_cell_states, last_kappa = \
+                    self.nets[0](writer_ids, letter_id_sequences, orig_text_lens, last_hidden_and_cell_states, new_out, last_kappa)
 
-                attn_weights[:, i] = self.nets[0].attn.attn_weights[0, 0, :]
+                attn_weights[:, i] = self.nets[0].attn.get_attn_weights()
 
                 #compute loss
                 gt_delta_points.append((float(gt[0]), float(gt[1]), float(gt[2])))

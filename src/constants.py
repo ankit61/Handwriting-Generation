@@ -4,12 +4,14 @@ import getpass
 from datetime import datetime
 import multiprocessing
 
-EPOCHS                      = 1000
+EPOCHS                      = 100
 
 CHARACTER_SET_SIZE          = 69
 STYLE_VECTOR_SIZE           = 256
 PRINT_FREQ                  = 20
 INTERMITTENT_OUTPUT_FREQ    = 5 # Num batches between outputs
+
+ATTENTION_NUM_GAUSSIAN_FUNC = 5
 
 NUM_WRITERS                 = 195
 CHARACTER_EMBEDDING_SIZE    = 32
