@@ -44,7 +44,7 @@ class GeneratorCell(BaseModule):
         self.invariant.weight.requires_grad_()
         self.char_embedding.weight.requires_grad_()
 
-    def forward(self, writer_id, letter_id_sequence, last_hidden_and_cell_states, last_out):
+    def forward(self, writer_id, letter_id_sequence, orig_text_lens, last_hidden_and_cell_states, last_out):
         assert len(last_hidden_and_cell_states) == len(self.rnn_cells), \
             f'last hidden and cell states ({len(last_hidden_and_cell_states)}) must be given for all rnn cells ({len(self.rnn_cells)})'
 
@@ -53,9 +53,10 @@ class GeneratorCell(BaseModule):
             letter_id_sequence = letter_id_sequence.cuda()
             last_out = last_out.cuda()
 
+        last_out[:, 2].sigmoid_()
         invariants      = self.invariant(writer_id)
-        attn_embedding  = self.attn(self.char_embedding(letter_id_sequence), 
-            [last_hidden_and_cell_states[i][0] for i in range(len(last_hidden_and_cell_states))])
+        attn_embedding  = self.attn(self.char_embedding(letter_id_sequence), orig_text_lens,
+            [last_hidden_and_cell_states[i][0] for i in range(len(last_hidden_and_cell_states))], last_out)
 
         hidden_and_cell_states = []
         rnn_input      = torch.cat([attn_embedding, invariants, last_out], dim=1)
