@@ -43,7 +43,7 @@ class BaseRunner(metaclass=ABCMeta):
                 self.nets[i] = self.nets[i].cuda()
 
             loss_fn = loss_fn.cuda()
-
+  
     def output_weight_distribution(self, name_prefix="training_weights"):
         if not self.introspect:
             return
@@ -141,18 +141,18 @@ class BaseRunner(metaclass=ABCMeta):
             if i % constants.PRINT_FREQ == 0:
                 progress.display(i, epoch)
 
-    def train(self, train_loader, epochs, val_loader = None):
+    def train(self, train_loader, epochs, val_loader = None, validate_on_train=False):
         self.output_weight_distribution("weight_initializations")
 
         for i in range(len(self.nets)):
             self.nets[i].train()
+        
+        if(validate_on_train):
+            val_loader = train_loader
 
         for epoch in range(epochs):
             self.run(train_loader, 'train', epoch, self.train_batch_and_get_metrics)
-
-            for i in range(len(self.lr_schedulers)):
-                self.lr_schedulers[i].step()
-                
+            
             if val_loader is not None:
                 self.test(val_loader, validate=True)
                 if(sign(self.best_meter.avg - self.best_metric_val) == self.best_compare):
@@ -169,6 +169,11 @@ class BaseRunner(metaclass=ABCMeta):
                         self.best_metric_val = self.best_meter.avg
                 self.best_meter.reset()
 
+        for i in range(len(self.lr_schedulers)):
+            if(min(self.lr_schedulers[i].get_lr()) >=\
+                constants.MIN_LEARNING_RATE):
+                    self.lr_schedulers[i].step()
+
         self.output_weight_distribution("final_weights")
 
     def test(self, test_loader, validate=False):
@@ -177,7 +182,7 @@ class BaseRunner(metaclass=ABCMeta):
 
         with torch.no_grad():
             if validate:
-                self.run(test_loader, 'test', 1, self.validate_batch_and_get_metrics)
+                self.run(test_loader, 'val', 1, self.validate_batch_and_get_metrics)
             else:
                 self.run(test_loader, 'test', 1, self.test_batch_and_get_metrics)
 
