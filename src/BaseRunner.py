@@ -9,6 +9,7 @@ import constants
 import os
 from numpy import sign
 import torch.optim.lr_scheduler as lr_scheduler
+import warnings
 
 LR_DECAY_STEP_SIZE  = 10
 LR_DECAY_FACTOR     = 0.9
@@ -17,7 +18,7 @@ class BaseRunner(metaclass=ABCMeta):
     #inspired by https://github.com/pytorch/examples/blob/master/imagenet/main.py
 
     def __init__(self, models, loss_fn, optimizers, best_metric_name,
-        should_minimize_best_metric, debug = True, introspect = True):
+        should_minimize_best_metric, debug = True, introspect = True, load_paths=None):
 
         assert type(models) == type([]), 'models must be a list'
         assert type(optimizers) == type([]), 'optimizers must be a list'
@@ -37,12 +38,26 @@ class BaseRunner(metaclass=ABCMeta):
         self.lr_schedulers = \
             [lr_scheduler.StepLR(optimizers[i], LR_DECAY_STEP_SIZE, LR_DECAY_FACTOR) 
                 for i in range(len(self.optimizers))]
+        
+        if load_paths is not None:
+            for i, path in enumerate(load_paths):
+                self.load_model(models[i], load_paths[i])
 
         if(torch.cuda.is_available()):
             for i in range(len(self.nets)):
                 self.nets[i] = self.nets[i].cuda()
 
             loss_fn = loss_fn.cuda()
+  
+    def load_model(self, model, path):
+        d = torch.load(path)
+        print('Loading ' + d['arch'] + 'where ' + \
+            d['best_metric_name'] + ' was ' + \
+            str(d['best_metric_val']) + '...')
+        try:
+            model.load_state_dict(d['state_dict'])
+        except:
+            warnings.warn('Could not load ' + d['arch'] + '! This happens when the architecture of the saved model is different than the current model')
 
     def output_weight_distribution(self, name_prefix="training_weights"):
         if not self.introspect:
@@ -139,18 +154,18 @@ class BaseRunner(metaclass=ABCMeta):
             if i % constants.PRINT_FREQ == 0:
                 progress.display(i, epoch)
 
-    def train(self, train_loader, epochs, val_loader = None):
+    def train(self, train_loader, epochs, val_loader = None, validate_on_train=False):
         self.output_weight_distribution("weight_initializations")
 
         for i in range(len(self.nets)):
             self.nets[i].train()
 
+        if(validate_on_train):
+            val_loader = train_loader
+
         for epoch in range(epochs):
             self.run(train_loader, 'train', epoch, self.train_batch_and_get_metrics)
-
-            for i in range(len(self.lr_schedulers)):
-                self.lr_schedulers[i].step()
-                
+            
             if val_loader is not None:
                 self.test(val_loader, validate=True)
                 if(sign(self.best_meter.avg - self.best_metric_val) == self.best_compare):
@@ -167,6 +182,11 @@ class BaseRunner(metaclass=ABCMeta):
                         self.best_metric_val = self.best_meter.avg
                 self.best_meter.reset()
 
+        for i in range(len(self.lr_schedulers)):
+            if(min(self.lr_schedulers[i].get_lr()) >=\
+                constants.MIN_LEARNING_RATE):
+                    self.lr_schedulers[i].step()
+
         self.output_weight_distribution("final_weights")
 
     def test(self, test_loader, validate=False):
@@ -175,7 +195,7 @@ class BaseRunner(metaclass=ABCMeta):
 
         with torch.no_grad():
             if validate:
-                self.run(test_loader, 'test', 1, self.validate_batch_and_get_metrics)
+                self.run(test_loader, 'val', 1, self.validate_batch_and_get_metrics)
             else:
                 self.run(test_loader, 'test', 1, self.test_batch_and_get_metrics)
 

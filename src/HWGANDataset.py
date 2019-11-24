@@ -134,6 +134,8 @@ class HWGANDataset(Dataset):
             f'''total characters ({len(self.char_to_idx_map)}) need to be smaller than 
                 constants.CHARACTER_SET_SIZE ({constants.CHARACTER_SET_SIZE})'''
 
+        print('character information loaded...')
+        
         self.transforms = transforms.Compose([
             #NormalizeDatapointsTransform(),
             CoordinatesToDeltaTransform(),
@@ -142,7 +144,9 @@ class HWGANDataset(Dataset):
             PadDatapointsTransform(),
         ])
 
+        print('data loading...')
         self.data = self.load_data(data_dir, max_line_points)
+        print('data loaded...')
 
         pos, neg = 0, 0 
         for d in self.data:

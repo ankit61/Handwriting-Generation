@@ -32,6 +32,8 @@ MAX_DATA_LOAD_THREADS       = multiprocessing.cpu_count()
 XY_PRED_TOLERANCE           = 0.05
 SIGMOID_THRESH_P            = 0.5
 
+MIN_LEARNING_RATE           = 0.000001
+
 TENSORBOARDX_BASE_DIR = os.path.join(
     Path(os.path.dirname(os.path.abspath(__file__))).parent, os.path.join('runs', datetime.now().strftime('%b%d_%H-%M-%S') + '_' + getpass.getuser()))
 INTERMITTENT_OUTPUTS_BASE_DIR = os.path.join(
