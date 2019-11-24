@@ -98,8 +98,6 @@ class BaseRunner(metaclass=ABCMeta):
             batch_number = epoch * len(data_loader) + i + 1
             data_time_meter.update(time.time() - start_time)
 
-            self.output_weight_norms(epoch)
-
             if batch_number % constants.INTERMITTENT_OUTPUT_FREQ == 0:
                 self.intermittent_introspection(batch, batch_number)
 

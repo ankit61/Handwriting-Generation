@@ -241,6 +241,7 @@ class HWGANDataset(Dataset):
     def get_data_statistics(self):
         writer_ids = [sample['writer_id'] for sample in self.data]
         max_line_len = max([sample['orig_line_text_len'] for sample in self.data])
+        print(f'Number of datafiles: {len(self.data)}')
         print(f'Max Line Length: {max_line_len}')
         print(f'Num Writers: {len(set(writer_ids))}')
 
