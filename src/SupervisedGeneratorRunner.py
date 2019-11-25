@@ -132,8 +132,14 @@ class SupervisedGeneratorRunner(BaseRunner):
                     new_out[high_bce_index, 2]  = gt[high_bce_index, 2]
 
             last_out, last_hidden_and_cell_states, last_kappa = self.nets[0](writer_ids, letter_id_sequences, orig_text_lens,
-                                                    last_hidden_and_cell_states, new_out, last_kappa)#[:cur_batch_size, :])
-            
+                                                    last_hidden_and_cell_states, new_out, last_kappa)
+
+            # if not self.graph_saved:
+            #     inputs = (writer_ids, letter_id_sequences, orig_text_lens,
+            #                 last_hidden_and_cell_states, new_out, last_kappa)
+            #     self.writer.add_graph(self.nets[0], input_to_model=inputs, verbose=True, 
+            #                                     profile_with_cuda=torch.cuda.is_available())
+            #     self.graph_saved = True
 
             gt = packed_datapoints.data[batch_start:batch_start + cur_batch_size, :]
             
