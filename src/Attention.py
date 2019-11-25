@@ -65,7 +65,7 @@ class WindowAttention(BaseModule):
         assert last_kappa.shape[-1] == self.num_gaussian_func, \
             f'Number of gaussian functions for attention ({self.num_gaussian_func}) must match shape of last_kappa ({last_kappa.shape[-1]})'
 
-        attn_params = self.attn(last_hidden_states).exp()
+        attn_params = self.attn(last_hidden_states)
 
         # Zero out embeddings for padding characters
         for i in range(text_len.shape[0]):
@@ -73,6 +73,8 @@ class WindowAttention(BaseModule):
 
         
         alpha, beta, cur_kappa = attn_params.chunk(3, dim=-1)
+        alpha = alpha.exp()
+        beta, cur_kappa = torch.sigmoid(beta), torch.sigmoid(cur_kappa)
         kappa = last_kappa + cur_kappa
 
         character_indices = torch.Tensor(list(range(self.max_text_len)))

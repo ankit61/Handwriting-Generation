@@ -132,7 +132,7 @@ class SupervisedGeneratorRunner(BaseRunner):
                     new_out[high_bce_index, 2]  = gt[high_bce_index, 2]
 
             last_out, last_hidden_and_cell_states, last_kappa = self.nets[0](writer_ids, letter_id_sequences, orig_text_lens,
-                                                    last_hidden_and_cell_states, new_out, last_kappa[:cur_batch_size, :])
+                                                    last_hidden_and_cell_states, new_out, last_kappa)#[:cur_batch_size, :])
             
 
             gt = packed_datapoints.data[batch_start:batch_start + cur_batch_size, :]
@@ -194,7 +194,7 @@ class SupervisedGeneratorRunner(BaseRunner):
 
             last_out = torch.zeros((1, constants.RNN_OUT_SIZE))
 
-            attn_weights = torch.zeros(constants.MAX_LINE_TEXT_LENGTH, test_sentence['orig_datapoints_len'])
+            #attn_weights = torch.zeros(constants.MAX_LINE_TEXT_LENGTH, test_sentence['orig_datapoints_len'])
             last_kappa = torch.zeros((1, constants.ATTENTION_NUM_GAUSSIAN_FUNC))
 
             for i in range(test_sentence['orig_datapoints_len']):
@@ -216,7 +216,7 @@ class SupervisedGeneratorRunner(BaseRunner):
                 last_out, last_hidden_and_cell_states, last_kappa = \
                     self.nets[0](writer_ids, letter_id_sequences, orig_text_lens, last_hidden_and_cell_states, new_out, last_kappa)
 
-                attn_weights[:, i] = self.nets[0].attn.get_attn_weights()
+                #attn_weights[:, i] = self.nets[0].attn.get_attn_weights()
 
                 #compute loss
                 gt_delta_points.append((float(gt[0]), float(gt[1]), float(gt[2])))
@@ -232,6 +232,6 @@ class SupervisedGeneratorRunner(BaseRunner):
                         #, attn_weights=self.nets[0].attn.attn_weights, orig_text='find this yourself!')
             self.writer.add_figure(f'{self.name}/intermittent_output', points_plot, global_step=self.global_step)
 
-            attn_heatmap = attention_output(attn_weights.data, generated_delta_points, test_sentence['line_text'][:test_sentence['orig_line_text_len']]
-                , delta_points=True)
-            self.writer.add_figure(f'{self.name}/attention_heatmap', attn_heatmap, global_step=self.global_step)
+            #attn_heatmap = attention_output(attn_weights.data, generated_delta_points, test_sentence['line_text'][:test_sentence['orig_line_text_len']]
+                #, delta_points=True)
+            #self.writer.add_figure(f'{self.name}/attention_heatmap', attn_heatmap, global_step=self.global_step)

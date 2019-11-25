@@ -4,9 +4,9 @@ import getpass
 from datetime import datetime
 import multiprocessing
 
-EPOCHS                      = 100
+EPOCHS                      = 300
 
-CHARACTER_SET_SIZE          = 69
+CHARACTER_SET_SIZE          = 32
 STYLE_VECTOR_SIZE           = 256
 PRINT_FREQ                  = 20
 INTERMITTENT_OUTPUT_FREQ    = 5 # Num batches between outputs
@@ -17,12 +17,12 @@ NUM_WRITERS                 = 195
 CHARACTER_EMBEDDING_SIZE    = 32
 RNN_HIDDEN_SIZE             = 64
 RNN_DEPTH                   = 4
-RNN_TYPE                    = 'GRU'
+RNN_TYPE                    = 'LSTM'
 RNN_OUT_SIZE                = 3
 
 GEN_BATCH_SIZE              = 64
 
-MAX_LINE_POINTS             = 32
+MAX_LINE_POINTS             = 100
 MINIMUM_CHAR_FREQUENCY      = 0
 MAX_LINE_TEXT_LENGTH        = 66
 PAD_CHARACTER               = '@'

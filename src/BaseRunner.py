@@ -51,7 +51,7 @@ class BaseRunner(metaclass=ABCMeta):
   
     def load_model(self, model, path):
         d = torch.load(path)
-        print('Loading ' + d['arch'] + 'where ' + \
+        print('Loading ' + d['arch'] + ' where ' + \
             d['best_metric_name'] + ' was ' + \
             str(d['best_metric_val']) + '...')
         try:
@@ -133,7 +133,7 @@ class BaseRunner(metaclass=ABCMeta):
             if metrics is not None:
                 for j, (metric_name, metric_val) in enumerate(metrics):
                     self.writer.add_scalar(os.path.join(self.name, prefix + '_' + 
-                        metric_name), metric_val, batch_number)
+                        metric_name), metric_val, self.global_step)
 
                     if not progress_display_made:
                         other_meters.append(utils.AverageMeter(metric_name))
