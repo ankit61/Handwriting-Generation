@@ -151,6 +151,7 @@ class SupervisedGeneratorRunner(BaseRunner):
             torch.nn.utils.clip_grad_norm_(self.nets[0].parameters(), GRADIENT_CLIP_NORM)
             self.global_step += 1
             self.output_gradient_norms(self.global_step)
+            self.output_weight_norms(self.global_step)
             self.output_gradient_distributions(self.global_step)
             self.optimizers[0].step()
 

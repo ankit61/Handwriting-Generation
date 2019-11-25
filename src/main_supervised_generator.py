@@ -19,7 +19,8 @@ if len(saved_models) > 0:
 else:
     saved_models = None
 
-dataset = HWGANDataset()
+dataset = HWGANDataset('data/full_data')
+dataset.get_data_statistics()
 gen_runner  = SupervisedGeneratorRunner(load_paths=saved_models)
 data_loader = DataLoader(dataset, batch_size=constants.GEN_BATCH_SIZE)
 

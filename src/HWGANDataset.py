@@ -1,4 +1,4 @@
-import os, threading, copy
+import os, threading, copy, tqdm
 import torch
 from torch.utils.data import Dataset
 import torchvision.transforms as transforms
@@ -168,11 +168,13 @@ class HWGANDataset(Dataset):
         writer_id_to_int_map = {}
         data_load_threads = []
         files_to_load = list(os.listdir(data_dir))
+
+        load_progress = tqdm.tqdm(desc= 'Num files processed:', total=len(files_to_load))
         
         for _ in range(constants.MAX_DATA_LOAD_THREADS):
             # Appends sample directly to data
             data_load_thread = threading.Thread(target=self.parallel_data_load, 
-                    args=(files_to_load, data_dir, writer_id_to_int_map, max_line_points, data))
+                    args=(files_to_load, data_dir, writer_id_to_int_map, max_line_points, data, load_progress))
             data_load_thread.start()
             data_load_threads.append(data_load_thread)
         
@@ -187,9 +189,10 @@ class HWGANDataset(Dataset):
 
         return data
 
-    def parallel_data_load(self, file_name_buf, data_dir, writer_id_to_int_map, max_line_points, data_buf):
+    def parallel_data_load(self, file_name_buf, data_dir, writer_id_to_int_map, max_line_points, data_buf, load_progress):
         while len(file_name_buf) > 0:
             file_name = file_name_buf.pop()
+            load_progress.update(1)
             with open(f'{data_dir}/{file_name}') as fp:
                 file_data = fp.read()
                 file_lines = file_data.split('\n')
@@ -245,6 +248,7 @@ class HWGANDataset(Dataset):
     def get_data_statistics(self):
         writer_ids = [sample['writer_id'] for sample in self.data]
         max_line_len = max([sample['orig_line_text_len'] for sample in self.data])
+        print(f'Number of datafiles: {len(self.data)}')
         print(f'Max Line Length: {max_line_len}')
         print(f'Num Writers: {len(set(writer_ids))}')
 
