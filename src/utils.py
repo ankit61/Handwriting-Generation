@@ -121,18 +121,22 @@ def attention_output(attn_weights, generated_points, original_text, delta_points
 
     return fig
 
+def unstandardize_points(points, mean, std):
+    points = points * np.array(std) + np.array(mean)
+    return points
+
 def points_to_image(generated_points, ground_truth_points=None, delta_points=False, plot_type='continuous', generated_plot_title='Generated Output',
         gt_plot_title='Ground Truth Output', save_to_file=False, file_path=None):
     fig = plt.figure()
 
-    plot_rows = 1 if ground_truth_points == None else 2
+    plot_rows = 1 if ground_truth_points is None else 2
     plot_cols = 1
     generated_ax = fig.add_subplot(plot_rows, plot_cols, 1)
     #generated_fig = plt.subplot(plot_rows, plot_cols, 1)
     generated_ax.set_title(generated_plot_title)
     plot_points(plt, generated_points, delta_points, plot_flags=f'k{PLOT_FLAG_MAP[plot_type]}')
 
-    if ground_truth_points != None:
+    if not ground_truth_points is None:
         gt_ax = fig.add_subplot(plot_rows, plot_cols, 2)
         #gt_fig = plt.subplot(plot_rows, plot_cols, 2)
         gt_ax.set_title(gt_plot_title)
