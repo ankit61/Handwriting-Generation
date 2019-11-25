@@ -213,7 +213,6 @@ class HWGANDataset(Dataset):
                 writer_id_to_int_map[writer_id] = len(writer_id_to_int_map)
             writer_id = writer_id_to_int_map[writer_id]
             assert writer_id < constants.NUM_WRITERS, 'writer_id > constants.NUM_WRITERS'
-
             sample = {
                 'writer_id': writer_id,
                 'line_text': line_text,
@@ -226,19 +225,20 @@ class HWGANDataset(Dataset):
             data_buf.append(sample)
 
     def standardize_datapoints(self, data):
-        delta_xs, delta_ys = [], []
+        xs, ys = [], []
         for sample in data:
-            for x, y, _ in sample['datapoints']:
-                delta_xs.append(x)
-                delta_ys.append(y)
-        mean_x, std_x = np.mean(delta_xs), np.std(delta_xs)
-        mean_y, std_y = np.mean(delta_ys), np.std(delta_ys)
+            for x, y, _ in sample['datapoints'][:sample['orig_datapoints_len']]:
+                xs.append(x)
+                ys.append(y)
+
+        self.mean_x, self.std_x = np.mean(xs), np.std(xs)
+        self.mean_y, self.std_y = np.mean(ys), np.std(ys)
 
         for sample in data:
-            datapoints = np.array(sample['datapoints'])
-            datapoints[:, 0] = (datapoints[:, 0] - mean_x) / std_x
-            datapoints[:, 1] = (datapoints[:, 1] - mean_y) / std_y
-            sample['datapoints'] = datapoints
+            datapoints, padding = sample['datapoints'][:sample['orig_datapoints_len']], sample['datapoints'][sample['orig_datapoints_len']:]
+            datapoints[:, 0] = (datapoints[:, 0] - self.mean_x) / self.std_x
+            datapoints[:, 1] = (datapoints[:, 1] - self.mean_y) / self.std_y
+            sample['datapoints'] = torch.cat([datapoints, padding])
 
         return data
 
