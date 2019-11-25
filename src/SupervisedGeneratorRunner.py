@@ -59,6 +59,8 @@ class GeneratorLoss(BaseModule):
 class SupervisedGeneratorRunner(BaseRunner):
     def __init__(self, debug = True, load_paths = None):
         model = GeneratorCell()
+        if torch.cuda.is_available():
+            model = model.cuda()
         optimizer = optim.Adam(model.parameters(), lr=LR, weight_decay=WEIGHT_DECAY)
         loss_fn = GeneratorLoss(None, model)
         self.global_step = 0
