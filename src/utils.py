@@ -61,10 +61,10 @@ def _get_char_frequency_dict(data_dir, max_line_points):
     char_count_dict = defaultdict(int)
     for file_name in os.listdir(data_dir):
         with open(f'{data_dir}/{file_name}') as fp:
-            file_lines = fp.read().split('\n')
-            num_points = int(file_lines[1])
+            text = fp.readline().split('\n')[0]
+            num_points = int(fp.readline().split('\n')[0])
             if num_points > max_line_points: continue
-            for c in file_lines[0]: 
+            for c in text: 
                 char_count_dict[c] += 1
     return dict(char_count_dict)
 
