@@ -34,6 +34,13 @@ SIGMOID_THRESH_P            = 0.5
 
 MIN_LEARNING_RATE           = 0.000001
 
+MODEL_STR                   = f'{RNN_TYPE}_s{STYLE_VECTOR_SIZE}_c{CHARACTER_EMBEDDING_SIZE}_' + \
+                                f'rh{RNN_HIDDEN_SIZE}_d{RNN_DEPTH}_nw{NUM_WRITERS}_' + \
+                                f'cs{CHARACTER_SET_SIZE}_ro{RNN_OUT_SIZE}_' + \
+                                f'mltl{MAX_LINE_TEXT_LENGTH}'
+
+MODEL_STR_2_ID_DICT_FILE    = 'model_str_2_id'
+
 TENSORBOARDX_BASE_DIR = os.path.join(
     Path(os.path.dirname(os.path.abspath(__file__))).parent, os.path.join('runs', datetime.now().strftime('%b%d_%H-%M-%S') + '_' + getpass.getuser()))
 INTERMITTENT_OUTPUTS_BASE_DIR = os.path.join(
