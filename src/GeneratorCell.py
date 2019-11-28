@@ -16,7 +16,7 @@ class GeneratorCell(BaseModule):
         assert constants.RNN_DEPTH > 0
 
         self.char_embedding = nn.Embedding(constants.CHARACTER_SET_SIZE, 
-                                constants.CHARACTER_SET_SIZE) # One-hot encoding
+                                constants.CHARACTER_EMBEDDING_SIZE) # One-hot encoding
         self.invariant = nn.Embedding(constants.NUM_WRITERS, constants.STYLE_VECTOR_SIZE)
         self.rnn_type = rnn_type
         rnn_cell_type = nn.GRUCell if rnn_type == 'GRU' else nn.LSTMCell

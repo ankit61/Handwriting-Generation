@@ -18,7 +18,7 @@ class BaseRunner(metaclass=ABCMeta):
     #inspired by https://github.com/pytorch/examples/blob/master/imagenet/main.py
 
     def __init__(self, models, loss_fn, optimizers, best_metric_name,
-        should_minimize_best_metric, debug = True, introspect = True, load_paths=None):
+        should_minimize_best_metric, debug = True, introspect = True, load_paths=None, model_code = ''):
 
         assert type(models) == type([]), 'models must be a list'
         assert type(optimizers) == type([]), 'optimizers must be a list'
@@ -34,6 +34,7 @@ class BaseRunner(metaclass=ABCMeta):
         self.best_meter = utils.AverageMeter('best_metric')
         self.loss_fn = loss_fn
         self.optimizers = optimizers
+        self.model_code = model_code
         self.keys_for_gpu = None
         self.lr_schedulers = \
             [lr_scheduler.StepLR(optimizers[i], LR_DECAY_STEP_SIZE, LR_DECAY_FACTOR) 
@@ -171,12 +172,12 @@ class BaseRunner(metaclass=ABCMeta):
                 if(sign(self.best_meter.avg - self.best_metric_val) == self.best_compare):
                     for i in range(len(self.nets)):
                         torch.save({
-                            'arch': self.nets[i].__class__.__name__,
+                            'arch': self.nets[i].__class__.__name__ + self.model_code,
                             'state_dict': self.nets[i].state_dict(),
                             'best_metric_val': self.best_meter.avg,
                             'best_metric_name': self.best_metric_name
                             }, os.path.join(constants.MODELS_BASE_DIR,
-                                self.nets[i].__class__.__name__ + '_' + \
+                                self.nets[i].__class__.__name__ + self.model_code + '_' + \
                                 'checkpoint_' + str(epoch + 1) + '.pth')
                         )
                         self.best_metric_val = self.best_meter.avg

@@ -57,7 +57,7 @@ class GeneratorLoss(BaseModule):
         return final_loss_val, loss_vals_weights
 
 class SupervisedGeneratorRunner(BaseRunner):
-    def __init__(self, debug = True, load_paths = None):
+    def __init__(self, debug = True, load_paths = None, model_code = ''):
         model = GeneratorCell()
         optimizer = optim.Adam(model.parameters(), lr=LR, weight_decay=WEIGHT_DECAY)
         loss_fn = GeneratorLoss(None, model)
@@ -67,7 +67,8 @@ class SupervisedGeneratorRunner(BaseRunner):
         super(SupervisedGeneratorRunner, self).__init__(models=[model],
             loss_fn=loss_fn, 
             optimizers=[optimizer], best_metric_name='loss', 
-            should_minimize_best_metric=True, debug=debug, load_paths=load_paths)
+            should_minimize_best_metric=True, debug=debug, load_paths=load_paths, 
+            model_code=model_code)
 
         self.loss_fn.writer = self.writer
         self.set_gpu_keys(['datapoints', 'writer_id', 'line_text_integers'])
