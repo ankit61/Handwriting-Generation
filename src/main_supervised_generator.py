@@ -32,7 +32,10 @@ def get_saved_models(model_code):
     saved_models = os.listdir(constants.MODELS_BASE_DIR)
     saved_models = [model for model in saved_models if model.split('_')[0] == model_name]
     if len(saved_models) > 0:
-        saved_models.sort(key= lambda m : int(m.split('_')[-1].split('.')[0]), reverse=True)
+        saved_models = list(map(lambda m: os.path.join(constants.MODELS_BASE_DIR, m), 
+                        saved_models))
+        #get latest created
+        saved_models.sort(key= lambda m : int(os.path.getmtime(m)), reverse=True)
         saved_models = saved_models[:1]
         saved_models[0] = os.path.join(constants.MODELS_BASE_DIR, saved_models[0])
     else:
@@ -43,6 +46,9 @@ def get_saved_models(model_code):
 def main():
     model_code = get_model_code()
     saved_models = get_saved_models(model_code)
+
+    print(f'\n\n\n\n\n Model String: {constants.MODEL_STR} \n\n\n\n\n')
+    print(f'\n\n\n\n\n Model Code: {model_code} \n\n\n\n\n')
 
     dataset = HWGANDataset()
     dataset.get_data_statistics()

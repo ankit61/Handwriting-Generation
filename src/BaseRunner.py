@@ -57,6 +57,8 @@ class BaseRunner(metaclass=ABCMeta):
             print('Loading ' + d['arch'] + ' where ' + \
                 d['best_metric_name'] + ' was ' + \
                 str(d['best_metric_val']) + '...')
+            if(d['best_metric_name'] == self.best_metric_name):
+                self.best_metric_val = d['best_metric_val']
         except:
             warnings.warn('Could not load ' + d['arch'] + '! This happens when the architecture of the saved model is different than the current model')
 
