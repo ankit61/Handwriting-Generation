@@ -122,7 +122,7 @@ class HWGANDataset(Dataset):
     * Data files should have line_text on line 1, num_data_points on line 2 and 
         x, y, p on each line thereafter
     """
-    
+
     pos_weight = None
     mean = None
     std = None
@@ -139,7 +139,6 @@ class HWGANDataset(Dataset):
         print('character information loaded...')
         
         self.transforms = transforms.Compose([
-            #NormalizeDatapointsTransform(),
             CoordinatesToDeltaTransform(),
             PadLineTextTransform(),
             LineTextToIntegerTransform(self.char_to_idx_map),
@@ -156,14 +155,6 @@ class HWGANDataset(Dataset):
                 pos += point[2].item()
                 neg += 1 - point[2].item()
         HWGANDataset.pos_weight = neg / pos
-
-    def __getattribute__(self, name):
-        if name == 'pos_weight' and HWGANDataset.pos_weight is None:
-            raise NotImplementedError('pos_weight is not set, create an object' +
-                                        'of this class somewhere in the process' +  
-                                        'to initialize it')
-
-        return Dataset.__getattribute__(self, name)
     
     def load_data(self, data_dir, max_line_points):
         data = []
@@ -184,10 +175,13 @@ class HWGANDataset(Dataset):
         for thread in data_load_threads:
             thread.join()
 
-        data.sort(key = lambda sample : sample['orig_datapoints_len'], 
-            reverse=True)
+        assert len(writer_id_to_int_map) <= constants.NUM_WRITERS, 'writer_id > constants.NUM_WRITERS'
 
-        if constants.STANDARDIZE_POINTS : data = self.standardize_datapoints(data)
+        data.sort(key = lambda sample : sample['orig_datapoints_len'], 
+            reverse=True) #for rnn_utils to work
+
+        if constants.STANDARDIZE_POINTS: 
+            data = self.standardize_datapoints(data)
 
         return data
 
@@ -214,7 +208,7 @@ class HWGANDataset(Dataset):
             if writer_id not in writer_id_to_int_map:
                 writer_id_to_int_map[writer_id] = len(writer_id_to_int_map)
             writer_id = writer_id_to_int_map[writer_id]
-            assert writer_id < constants.NUM_WRITERS, 'writer_id > constants.NUM_WRITERS'
+
             sample = {
                 'writer_id': writer_id,
                 'line_text': line_text,
