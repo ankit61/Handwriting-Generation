@@ -2,7 +2,7 @@ runs/*
 models/*
 data/*
 *.txt
-__pycache__/*
+__pycache__
 # virtualenv
 env/*
 .vscode/*

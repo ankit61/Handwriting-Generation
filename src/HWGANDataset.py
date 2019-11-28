@@ -124,6 +124,8 @@ class HWGANDataset(Dataset):
     """
     
     pos_weight = None
+    mean = None
+    std = None
 
     def __init__(self, data_dir = constants.DATA_BASE_DIR, max_line_points=constants.MAX_LINE_POINTS):
         # Get characters to ignore and char-and-index mappings based on data
@@ -153,10 +155,10 @@ class HWGANDataset(Dataset):
             for point in d['datapoints']:
                 pos += point[2].item()
                 neg += 1 - point[2].item()
-        pos_weight = neg / pos
+        HWGANDataset.pos_weight = neg / pos
 
     def __getattribute__(self, name):
-        if name == 'pos_weight' and pos_weight is None:
+        if name == 'pos_weight' and HWGANDataset.pos_weight is None:
             raise NotImplementedError('pos_weight is not set, create an object' +
                                         'of this class somewhere in the process' +  
                                         'to initialize it')
@@ -213,7 +215,6 @@ class HWGANDataset(Dataset):
                 writer_id_to_int_map[writer_id] = len(writer_id_to_int_map)
             writer_id = writer_id_to_int_map[writer_id]
             assert writer_id < constants.NUM_WRITERS, 'writer_id > constants.NUM_WRITERS'
-
             sample = {
                 'writer_id': writer_id,
                 'line_text': line_text,
@@ -226,19 +227,23 @@ class HWGANDataset(Dataset):
             data_buf.append(sample)
 
     def standardize_datapoints(self, data):
-        delta_xs, delta_ys = [], []
+        xs, ys = [], []
         for sample in data:
-            for x, y, _ in sample['datapoints']:
-                delta_xs.append(x)
-                delta_ys.append(y)
-        mean_x, std_x = np.mean(delta_xs), np.std(delta_xs)
-        mean_y, std_y = np.mean(delta_ys), np.std(delta_ys)
+            for x, y, _ in sample['datapoints'][:sample['orig_datapoints_len']]:
+                xs.append(x)
+                ys.append(y)
+
+        mean_x, std_x = np.mean(xs), np.std(xs)
+        mean_y, std_y = np.mean(ys), np.std(ys)
 
         for sample in data:
-            datapoints = np.array(sample['datapoints'])
+            datapoints, padding = sample['datapoints'][:sample['orig_datapoints_len']], sample['datapoints'][sample['orig_datapoints_len']:]
             datapoints[:, 0] = (datapoints[:, 0] - mean_x) / std_x
             datapoints[:, 1] = (datapoints[:, 1] - mean_y) / std_y
-            sample['datapoints'] = datapoints
+            sample['datapoints'] = torch.cat([datapoints, padding])
+
+        HWGANDataset.mean = [mean_x, mean_y, 0]
+        HWGANDataset.std = [std_x, std_y, 1]
 
         return data
 

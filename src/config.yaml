@@ -1,7 +1,0 @@
-BaseRunner: &BaseRunner
-  gen_batch_size: 32
-  intermittent_output_freq: 10
-
-SupervisedGeneratorRunner:
-  <<: *BaseRunner
-  intermittent_output_freq: 50

@@ -1,6 +1,6 @@
 from GeneratorCell import GeneratorCell
 from BaseRunner import BaseRunner
-from utils import points_to_image, attention_output
+from utils import points_to_image, attention_output, unstandardize_points
 import constants
 import torch.optim as optim
 import torch.nn as nn
@@ -27,7 +27,7 @@ class GeneratorLoss(BaseModule):
         self.model   = model
         self.xy_loss = nn.MSELoss()
         self.p_loss  = nn.BCEWithLogitsLoss(reduction='mean', 
-                            pos_weight=HWGANDataset.pos_weight)
+                            pos_weight=torch.tensor(HWGANDataset.pos_weight))
 
         if torch.cuda.is_available():
             self.xy_loss = self.xy_loss.cuda()
@@ -236,6 +236,10 @@ class SupervisedGeneratorRunner(BaseRunner):
                 generated_p = torch.sigmoid(generated_p)
                 # Each generated value is a 2D array
                 generated_delta_points.append((float(generated_xy[0][0]), float(generated_xy[0][1]), 1 if generated_p > constants.SIGMOID_THRESH_P else 0))
+
+            if constants.STANDARDIZE_POINTS:
+                generated_delta_points = unstandardize_points(generated_delta_points, HWGANDataset.mean, HWGANDataset.std)
+                gt_delta_points = unstandardize_points(gt_delta_points, HWGANDataset.mean, HWGANDataset.std)
 
             points_plot = points_to_image(generated_delta_points, ground_truth_points=gt_delta_points, delta_points=True)
                         #, attn_weights=self.nets[0].attn.attn_weights, orig_text='find this yourself!')
