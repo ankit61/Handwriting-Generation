@@ -52,11 +52,11 @@ class BaseRunner(metaclass=ABCMeta):
   
     def load_model(self, model, path):
         d = torch.load(path)
-        print('Loading ' + d['arch'] + ' where ' + \
-            d['best_metric_name'] + ' was ' + \
-            str(d['best_metric_val']) + '...')
         try:
             model.load_state_dict(d['state_dict'])
+            print('Loading ' + d['arch'] + ' where ' + \
+                d['best_metric_name'] + ' was ' + \
+                str(d['best_metric_val']) + '...')
         except:
             warnings.warn('Could not load ' + d['arch'] + '! This happens when the architecture of the saved model is different than the current model')
 
@@ -156,19 +156,21 @@ class BaseRunner(metaclass=ABCMeta):
                 progress.display(i, epoch)
 
     def train(self, train_loader, epochs, val_loader = None, validate_on_train=False):
+        assert val_loader is None or not validate_on_train 
         self.output_weight_distribution("weight_initializations")
 
         for i in range(len(self.nets)):
             self.nets[i].train()
 
-        if(validate_on_train):
-            val_loader = train_loader
+        train_metrics_calc = self.train_batch_and_track_metrics if validate_on_train else self.train_batch_and_get_metrics
 
         for epoch in range(epochs):
-            self.run(train_loader, 'train', epoch, self.train_batch_and_get_metrics)
+            self.run(train_loader, 'train', epoch, train_metrics_calc)
             
             if val_loader is not None:
                 self.test(val_loader, validate=True)
+
+            if val_loader is not None or validate_on_train:
                 if(sign(self.best_meter.avg - self.best_metric_val) == self.best_compare):
                     for i in range(len(self.nets)):
                         torch.save({
@@ -201,7 +203,13 @@ class BaseRunner(metaclass=ABCMeta):
                 self.run(test_loader, 'test', 1, self.test_batch_and_get_metrics)
 
     def validate_batch_and_get_metrics(self, batch):
-        metrics = self.test_batch_and_get_metrics(batch)
+        return self.get_metrics_and_track_best(batch, self.test_batch_and_get_metrics)
+
+    def train_batch_and_track_metrics(self, batch):
+        return self.get_metrics_and_track_best(batch, self.train_batch_and_get_metrics)
+    
+    def get_metrics_and_track_best(self, batch, metrics_calc):
+        metrics = metrics_calc(batch)
         did_find_name = False
         for (metric_name, metric_val) in metrics:
             if metric_name == self.best_metric_name:

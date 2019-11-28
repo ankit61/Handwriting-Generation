@@ -26,7 +26,7 @@ MAX_LINE_POINTS             = 100
 MINIMUM_CHAR_FREQUENCY      = 0
 MAX_LINE_TEXT_LENGTH        = 66
 PAD_CHARACTER               = '@'
-STANDARDIZE_POINTS          = False
+STANDARDIZE_POINTS          = True
 MAX_DATA_LOAD_THREADS       = multiprocessing.cpu_count()
 
 XY_PRED_TOLERANCE           = 0.05

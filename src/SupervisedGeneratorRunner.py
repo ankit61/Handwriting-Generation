@@ -1,6 +1,6 @@
 from GeneratorCell import GeneratorCell
 from BaseRunner import BaseRunner
-from utils import points_to_image, attention_output
+from utils import points_to_image, attention_output, unstandardize_points
 import constants
 import torch.optim as optim
 import torch.nn as nn
@@ -27,7 +27,7 @@ class GeneratorLoss(BaseModule):
         self.model   = model
         self.xy_loss = nn.MSELoss()
         self.p_loss  = nn.BCEWithLogitsLoss(reduction='mean', 
-                            pos_weight=HWGANDataset.pos_weight)
+                            pos_weight=torch.tensor(HWGANDataset.pos_weight))
 
         if torch.cuda.is_available():
             self.xy_loss = self.xy_loss.cuda()
@@ -41,8 +41,8 @@ class GeneratorLoss(BaseModule):
 
         loss_vals_weights = {
             'mse': (self.xy_loss(xys, gt.narrow(1, 0, 2)), 1),
-            'bce': (self.p_loss(ps, gt.narrow(1, 2, 1)), 100),
-            'invariant_regularization': (self.model.invariant.weight.norm(), 0.05)
+            'bce': (self.p_loss(ps, gt.narrow(1, 2, 1)), 100)
+            #'invariant_regularization': (self.model.invariant.weight.norm(), 0.05)
             #'big_step_penalty': (xys.norm(), 50)
         }
         
@@ -204,26 +204,29 @@ class SupervisedGeneratorRunner(BaseRunner):
             #attn_weights = torch.zeros(constants.MAX_LINE_TEXT_LENGTH, test_sentence['orig_datapoints_len'])
             last_kappa = torch.zeros((1, constants.ATTENTION_NUM_GAUSSIAN_FUNC))
 
+            train_mode = False
+
             for i in range(test_sentence['orig_datapoints_len']):
                 #do forward pass
                 letter_id_sequences = test_sentence['line_text_integers']
                 writer_ids = test_sentence['writer_id']
-                gt = test_sentence['datapoints'][0][i]
                 orig_text_lens = test_sentence['orig_line_text_len'].unsqueeze(0)
 
-                # if(np.random.rand() < self.force_teach_probability):
-                #     new_out = torch.zeros(last_out.shape)
-                #     if torch.cuda.is_available():
-                #         new_out = new_out.cuda()
-                #     new_out[0, :2] = gt[0:2]
-                #     new_out[0, 2]  = gt[2]
-                # else:
-                new_out = last_out
+                if(train_mode):
+                    new_out = torch.zeros(last_out.shape)
+                    if torch.cuda.is_available():
+                         new_out = new_out.cuda()
+                    new_out[0, :2] = gt[0:2]
+                    new_out[0, 2]  = gt[2]
+                else:
+                    new_out = last_out
+
+                train_mode = not train_mode
 
                 last_out, last_hidden_and_cell_states, last_kappa = \
                     self.nets[0](writer_ids, letter_id_sequences, orig_text_lens, last_hidden_and_cell_states, new_out, last_kappa)
 
-                #attn_weights[:, i] = self.nets[0].attn.get_attn_weights()
+                gt = test_sentence['datapoints'][0][i]
 
                 #compute loss
                 gt_delta_points.append((float(gt[0]), float(gt[1]), float(gt[2])))
@@ -234,6 +237,10 @@ class SupervisedGeneratorRunner(BaseRunner):
                 generated_p = torch.sigmoid(generated_p)
                 # Each generated value is a 2D array
                 generated_delta_points.append((float(generated_xy[0][0]), float(generated_xy[0][1]), 1 if generated_p > constants.SIGMOID_THRESH_P else 0))
+
+            if constants.STANDARDIZE_POINTS:
+                generated_delta_points = unstandardize_points(generated_delta_points, HWGANDataset.mean, HWGANDataset.std)
+                gt_delta_points = unstandardize_points(gt_delta_points, HWGANDataset.mean, HWGANDataset.std)
 
             points_plot = points_to_image(generated_delta_points, ground_truth_points=gt_delta_points, delta_points=True)
                         #, attn_weights=self.nets[0].attn.attn_weights, orig_text='find this yourself!')

@@ -41,7 +41,8 @@ class GeneratorCell(BaseModule):
         
             # Use identity matrix for one-hot encoding
             self.char_embedding.weight[:self.char_embedding.embedding_dim] = \
-                torch.tensor(np.identity(self.char_embedding.embedding_dim))
+                torch.tensor(np.identity(self.char_embedding.embedding_dim) \
+                    [:self.char_embedding.num_embeddings])
 
         self.invariant.weight.requires_grad_()
         self.char_embedding.weight.requires_grad_()
