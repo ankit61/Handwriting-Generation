@@ -7,7 +7,7 @@ import numpy as np
 from utils import get_char_info_from_data
 import constants
 
-class CoordinatesToDeltaTransform(object):
+class PointToPointDeltaTransform(object):
     """Converts a list of x, y, p datapoints to their delta counterparts
     * delta x = x_i - x_(i-1)
     """
@@ -23,6 +23,28 @@ class CoordinatesToDeltaTransform(object):
             delta_datapoints.append((datapoints[i][0] - datapoints[i-1][0], datapoints[i][1] - datapoints[i-1][1], datapoints[i][2]))
 
         sample['datapoints'] = torch.tensor(delta_datapoints[1:], dtype=torch.float)
+        return sample
+
+class OriginToPointDeltaTransform(object):
+    """Converts a list of x, y, p datapoints to their delta counterparts
+    * delta x = x_i - x_(i-1)
+    """
+
+    def __init__(self):
+        pass
+
+    def __call__(self, sample):
+        datapoints = sample['datapoints']
+        # Assume first point of stroke to be the origin
+        origin = datapoints[0]
+        # Ignore first point as it's (0, 0, 0), which is the first input to RNN
+        datapoints = datapoints[1:]
+        delta_datapoints = [None] * len(datapoints)
+
+        for i in range(len(datapoints)):
+            delta_datapoints[i] = (datapoints[i][0] - origin[0], datapoints[i][1] - origin[1], datapoints[i][2])
+
+        sample['datapoints'] = torch.tensor(delta_datapoints, dtype=torch.float)
         return sample
 
 class LineToOneHotMatrixTransform(object):
@@ -139,7 +161,8 @@ class HWGANDataset(Dataset):
         print('character information loaded...')
         
         self.transforms = transforms.Compose([
-            CoordinatesToDeltaTransform(),
+            #PointToPointDeltaTransform(),
+            OriginToPointDeltaTransform(),
             PadLineTextTransform(),
             LineTextToIntegerTransform(self.char_to_idx_map),
             PadDatapointsTransform(),

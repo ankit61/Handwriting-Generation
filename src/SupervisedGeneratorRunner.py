@@ -242,10 +242,10 @@ class SupervisedGeneratorRunner(BaseRunner):
                 generated_delta_points = unstandardize_points(generated_delta_points, HWGANDataset.mean, HWGANDataset.std)
                 gt_delta_points = unstandardize_points(gt_delta_points, HWGANDataset.mean, HWGANDataset.std)
 
-            points_plot = points_to_image(generated_delta_points, ground_truth_points=gt_delta_points, delta_points=True)
+            points_plot = points_to_image(generated_delta_points, ground_truth_points=gt_delta_points, delta_points=constants.USING_POINT_TO_POINT_DELTAS)
                         #, attn_weights=self.nets[0].attn.attn_weights, orig_text='find this yourself!')
             self.writer.add_figure(f'{self.name}/intermittent_output', points_plot, global_step=self.global_step)
 
             #attn_heatmap = attention_output(attn_weights.data, generated_delta_points, test_sentence['line_text'][:test_sentence['orig_line_text_len']]
-                #, delta_points=True)
+                #, delta_points=constants.USING_POINT_TO_POINT_DELTAS)
             #self.writer.add_figure(f'{self.name}/attention_heatmap', attn_heatmap, global_step=self.global_step)
