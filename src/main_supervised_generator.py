@@ -50,7 +50,7 @@ def main():
     print(f'\n\n\n\n\n Model String: {constants.MODEL_STR} \n\n\n\n\n')
     print(f'\n\n\n\n\n Model Code: {model_code} \n\n\n\n\n')
 
-    dataset = HWGANDataset()
+    dataset = HWGANDataset('data/one_sequence')
     dataset.get_data_statistics()
     gen_runner  = SupervisedGeneratorRunner(load_paths=saved_models, model_code=model_code)
     data_loader = DataLoader(dataset, batch_size=constants.GEN_BATCH_SIZE)

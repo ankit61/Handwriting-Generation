@@ -6,6 +6,7 @@ from scipy.stats import ortho_group
 import copy
 import constants
 from Attention import Attention, WindowAttention
+from DotProductAttention import DotProductAttention
 
 class GeneratorCell(BaseModule):
     def __init__(self, rnn_type = constants.RNN_TYPE, 
@@ -20,7 +21,7 @@ class GeneratorCell(BaseModule):
         self.invariant = nn.Embedding(constants.NUM_WRITERS, constants.STYLE_VECTOR_SIZE)
         self.rnn_type = rnn_type
         rnn_cell_type = nn.GRUCell if rnn_type == 'GRU' else nn.LSTMCell
-        rnn_input_size = constants.STYLE_VECTOR_SIZE + constants.RNN_OUT_SIZE + \
+        rnn_input_size = constants.STYLE_VECTOR_SIZE + constants.CHARACTER_EMBEDDING_SIZE + constants.RNN_OUT_SIZE + \
                             constants.MAX_LINE_TEXT_LENGTH * constants.CHARACTER_EMBEDDING_SIZE
 
         self.rnn_cells = nn.ModuleList([rnn_cell_type(rnn_input_size, constants.RNN_HIDDEN_SIZE)])
@@ -28,7 +29,7 @@ class GeneratorCell(BaseModule):
             self.rnn_cells.append(rnn_cell_type(rnn_input_size + constants.RNN_HIDDEN_SIZE, 
                                 constants.RNN_HIDDEN_SIZE))
 
-        self.attn = WindowAttention(hidden_size=constants.RNN_DEPTH * constants.RNN_HIDDEN_SIZE ,debug=self.debug)
+        self.attn = DotProductAttention(debug=self.debug)
         self.fc   = nn.Linear(constants.RNN_HIDDEN_SIZE * constants.RNN_DEPTH + constants.RNN_OUT_SIZE, constants.RNN_OUT_SIZE)
         self.init_embeddings()
 
@@ -47,7 +48,7 @@ class GeneratorCell(BaseModule):
         self.invariant.weight.requires_grad_()
         self.char_embedding.weight.requires_grad_()
 
-    def forward(self, writer_id, letter_id_sequence, orig_text_lens, last_hidden_and_cell_states, last_out, last_kappa):
+    def forward(self, writer_id, letter_id_sequence, orig_text_lens, last_hidden_and_cell_states, last_out):
         assert len(last_hidden_and_cell_states) == len(self.rnn_cells), \
             f'last hidden and cell states ({len(last_hidden_and_cell_states)}) must be given for all rnn cells ({len(self.rnn_cells)})'
 
@@ -69,14 +70,13 @@ class GeneratorCell(BaseModule):
         # Concatenate hidden states into 1D vector
         #attn_hidden_states = [last_hidden_and_cell_states[i][0] for i in range(len(last_hidden_and_cell_states))]
         #attn_hidden_states = torch.cat([attn_hidden_states[i] for i in range(len(attn_hidden_states))], dim=1)
-        #attn_embedding, cur_kappa  = self.attn(self.char_embedding(letter_id_sequence), attn_hidden_states, last_kappa, orig_text_lens)
-        cur_kappa = None
+        attn_embedding  = self.attn(self.char_embedding(letter_id_sequence), last_hidden_and_cell_states[-1][0], orig_text_lens)
         
         # Only use the first 'batch size' attentions as sequences in a batch are different length
         #attn_embedding = attn_embedding[:last_out.shape[0]]
 
         hidden_and_cell_states = []
-        rnn_input      = torch.cat([invariants, letter_embedding_sequence, last_out], dim=1)
+        rnn_input      = torch.cat([invariants, letter_embedding_sequence, attn_embedding, last_out], dim=1)
         for i in range(len(self.rnn_cells)):
             if self.rnn_type == 'GRU':
                 rnn_out = self.rnn_cells[i](rnn_input, last_hidden_and_cell_states[i][0])
@@ -84,13 +84,13 @@ class GeneratorCell(BaseModule):
             else: # LSTM
                 rnn_out = self.rnn_cells[i](rnn_input, last_hidden_and_cell_states[i])
                 hidden_and_cell_states.append(rnn_out)
-            rnn_input = torch.cat([invariants, letter_embedding_sequence, last_out, hidden_and_cell_states[-1][0]], dim=1)
+            rnn_input = torch.cat([invariants, letter_embedding_sequence, attn_embedding, last_out, hidden_and_cell_states[-1][0]], dim=1)
 
         final_in  = torch.cat(
             [last_out] + [hidden_and_cell_states[i][0] for i in range(constants.RNN_DEPTH)], dim=1)
         final_out = self.fc(final_in)
 
-        return final_out, hidden_and_cell_states, cur_kappa
+        return final_out, hidden_and_cell_states
 
     def introspect(self):
         pass

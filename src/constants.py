@@ -14,7 +14,7 @@ INTERMITTENT_OUTPUT_FREQ    = 5 # Num batches between outputs
 ATTENTION_NUM_GAUSSIAN_FUNC = 5
 
 NUM_WRITERS                 = 195
-CHARACTER_EMBEDDING_SIZE    = 32
+CHARACTER_EMBEDDING_SIZE    = 64
 RNN_HIDDEN_SIZE             = 64
 RNN_DEPTH                   = 4
 RNN_TYPE                    = 'LSTM'
@@ -26,7 +26,7 @@ MAX_LINE_POINTS             = 100
 MINIMUM_CHAR_FREQUENCY      = 0
 MAX_LINE_TEXT_LENGTH        = 66
 PAD_CHARACTER               = '@'
-STANDARDIZE_POINTS          = False
+STANDARDIZE_POINTS          = True
 USING_POINT_TO_POINT_DELTAS = False
 MAX_DATA_LOAD_THREADS       = multiprocessing.cpu_count()
 

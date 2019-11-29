@@ -96,7 +96,6 @@ class SupervisedGeneratorRunner(BaseRunner):
         self.optimizers[0].zero_grad()
 
         batch_size = batch['datapoints'].shape[0]
-        last_kappa = torch.zeros((batch_size, constants.ATTENTION_NUM_GAUSSIAN_FUNC))
 
         for i, cur_batch_size in tqdm(enumerate(packed_datapoints.batch_sizes)):
             #do forward pass
@@ -132,8 +131,8 @@ class SupervisedGeneratorRunner(BaseRunner):
                     new_out[high_mse_index, :2] = gt[high_mse_index, :2]
                     new_out[high_bce_index, 2]  = gt[high_bce_index, 2]
 
-            last_out, last_hidden_and_cell_states, last_kappa = self.nets[0](writer_ids, letter_id_sequences, orig_text_lens,
-                                                    last_hidden_and_cell_states, new_out, last_kappa)
+            last_out, last_hidden_and_cell_states = self.nets[0](writer_ids, letter_id_sequences, orig_text_lens,
+                                                    last_hidden_and_cell_states, new_out)
 
             # if not self.graph_saved:
             #     inputs = (writer_ids, letter_id_sequences, orig_text_lens,
@@ -202,7 +201,7 @@ class SupervisedGeneratorRunner(BaseRunner):
             last_out = torch.zeros((1, constants.RNN_OUT_SIZE))
 
             #attn_weights = torch.zeros(constants.MAX_LINE_TEXT_LENGTH, test_sentence['orig_datapoints_len'])
-            last_kappa = torch.zeros((1, constants.ATTENTION_NUM_GAUSSIAN_FUNC))
+            #last_kappa = torch.zeros((1, constants.ATTENTION_NUM_GAUSSIAN_FUNC))
 
             train_mode = False
 
@@ -223,8 +222,8 @@ class SupervisedGeneratorRunner(BaseRunner):
 
                 train_mode = not train_mode
 
-                last_out, last_hidden_and_cell_states, last_kappa = \
-                    self.nets[0](writer_ids, letter_id_sequences, orig_text_lens, last_hidden_and_cell_states, new_out, last_kappa)
+                last_out, last_hidden_and_cell_states = \
+                    self.nets[0](writer_ids, letter_id_sequences, orig_text_lens, last_hidden_and_cell_states, new_out)
 
                 gt = test_sentence['datapoints'][0][i]
 
